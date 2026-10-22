@@ -371,9 +371,13 @@ const styles = StyleSheet.create({
   },
   categoryGrid: {
     paddingHorizontal: 16,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 12,
   },
   categoryCard: {
+    flex: 1,
+    minWidth: 280,
     borderRadius: 16,
     padding: 16,
     flexDirection: 'row',
