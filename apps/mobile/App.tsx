@@ -1,0 +1,507 @@
+import React, { useState, useEffect } from 'react';
+import { StyleSheet, View, Text, TouchableOpacity, SafeAreaView, StatusBar, Alert } from 'react-native';
+import { BottomNavBar, NavTab } from './src/components/BottomNavBar';
+import { HomeScreen } from './src/screens/HomeScreen';
+import { CallsScreen } from './src/screens/CallsScreen';
+import { ChatScreen } from './src/screens/ChatScreen';
+import { ChatDetailScreen } from './src/screens/ChatDetailScreen';
+import { WalletScreen } from './src/screens/WalletScreen';
+import { ListenerDetailScreen } from './src/screens/ListenerDetailScreen';
+import { TransactionsScreen } from './src/screens/TransactionsScreen';
+import { ActiveCallScreen } from './src/screens/ActiveCallScreen';
+import { AccountScreen } from './src/screens/AccountScreen';
+import { EditProfileScreen } from './src/screens/EditProfileScreen';
+import { CouponsScreen } from './src/screens/CouponsScreen';
+import { CallHistoryScreen } from './src/screens/CallHistoryScreen';
+import { CallSummaryModal } from './src/screens/CallSummaryModal';
+import { IncomingCallModal } from './src/screens/IncomingCallModal';
+import { PolicyModal, PolicyType } from './src/screens/PolicyModal';
+import { HelpScreen } from './src/screens/HelpScreen';
+import { ListenerOnboardingModal } from './src/screens/ListenerOnboardingModal';
+import { DeviceFrame } from './src/components/DeviceFrame';
+import { InsufficientBalanceModal } from './src/components/InsufficientBalanceModal';
+import { ListenerProfile, WalletTransaction, Coupon, DEFAULT_COUPONS } from '@chatzie/shared';
+import { mockListeners, mockTransactions } from './src/data/mockData';
+import { THEME } from './src/theme';
+
+type ScreenView =
+  | 'tab_home'
+  | 'tab_calls'
+  | 'tab_chat'
+  | 'tab_wallet'
+  | 'chat_detail'
+  | 'listener_detail'
+  | 'transactions'
+  | 'call_history'
+  | 'edit_profile'
+  | 'coupons'
+  | 'active_call'
+  | 'account'
+  | 'help';
+
+class ErrorBoundary extends React.Component<
+  { children: React.ReactNode },
+  { hasError: boolean; error: Error | null }
+> {
+  constructor(props: { children: React.ReactNode }) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, info: any) {
+    console.error('Chatzie UI Error:', error, info);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <View style={{ flex: 1, backgroundColor: '#0B0F19', justifyContent: 'center', alignItems: 'center', padding: 24 }}>
+          <View style={{ backgroundColor: '#1E293B', padding: 24, borderRadius: 16, maxWidth: 440, width: '100%', borderWidth: 1, borderColor: '#334155' }}>
+            <Text style={{ color: '#EF4444', fontSize: 18, fontWeight: '700', marginBottom: 8 }}>Rendering Notice</Text>
+            <Text style={{ color: '#94A3B8', fontSize: 13, marginBottom: 16, lineHeight: 20 }}>
+              {this.state.error?.message || 'A render error occurred.'}
+            </Text>
+            <TouchableOpacity
+              onPress={() => {
+                if (typeof window !== 'undefined') window.location.reload();
+              }}
+              style={{ backgroundColor: '#2563EB', paddingVertical: 12, paddingHorizontal: 16, borderRadius: 8, alignItems: 'center' }}
+            >
+              <Text style={{ color: '#FFFFFF', fontWeight: '600', fontSize: 14 }}>Reload Application</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+export default function App() {
+  const [activeTab, setActiveTab] = useState<NavTab>('home');
+  const [currentScreen, setCurrentScreen] = useState<ScreenView>('tab_home');
+
+  // Real-time App State (Initialized with ₹120.00 for instant live testing!)
+  const [walletBalanceINR, setWalletBalanceINR] = useState<number>(120.00);
+  const [listeners, setListeners] = useState<ListenerProfile[]>(mockListeners);
+  const [transactions, setTransactions] = useState<WalletTransaction[]>(mockTransactions);
+  const [userName, setUserName] = useState('Amit');
+  const [userAvatar, setUserAvatar] = useState('https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=200&q=80');
+
+  // Active Contexts
+  const [selectedListener, setSelectedListener] = useState<ListenerProfile>(mockListeners[0]);
+  const [activeCallType, setActiveCallType] = useState<'audio' | 'video'>('audio');
+  const [isListenerVerified, setIsListenerVerified] = useState<boolean>(false);
+  const [showOnboardingModal, setShowOnboardingModal] = useState<boolean>(false);
+
+  // Low balance prompt modal
+  const [lowBalanceModal, setLowBalanceModal] = useState<{
+    visible: boolean;
+    listener: ListenerProfile | null;
+    type: 'audio' | 'video';
+  }>({
+    visible: false,
+    listener: null,
+    type: 'audio',
+  });
+
+  // Modals
+  const [summaryData, setSummaryData] = useState<{ visible: boolean; duration: number; cost: number }>({
+    visible: false,
+    duration: 0,
+    cost: 0,
+  });
+  const [incomingCallData, setIncomingCallData] = useState<{ visible: boolean; listener: ListenerProfile }>({
+    visible: false,
+    listener: mockListeners[1],
+  });
+  const [policyModal, setPolicyModal] = useState<{ visible: boolean; type: PolicyType }>({
+    visible: false,
+    type: 'privacy',
+  });
+  const [activeCoupon, setActiveCoupon] = useState<Coupon>(DEFAULT_COUPONS[0]);
+
+  // Handle URL auto-call parameter for instant 2-way Agora testing (audio or video)
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.location && window.location.search) {
+      const params = new URLSearchParams(window.location.search);
+      const autocallHandle = params.get('autocall');
+      const autocallType = params.get('type') === 'video' ? 'video' : 'audio';
+      if (autocallHandle) {
+        const found = mockListeners.find(l => l.username === autocallHandle) || mockListeners[0];
+        setSelectedListener(found);
+        setActiveCallType(autocallType);
+        setCurrentScreen('active_call');
+      }
+    }
+  }, []);
+
+  // Tab change handler
+  const handleTabChange = (tab: NavTab) => {
+    setActiveTab(tab);
+    if (tab === 'home') setCurrentScreen('tab_home');
+    if (tab === 'calls') setCurrentScreen('tab_calls');
+    if (tab === 'chat') setCurrentScreen('tab_chat');
+    if (tab === 'wallet') setCurrentScreen('tab_wallet');
+  };
+
+  // Trigger audio/video call (Voice: ₹9/min, Video: ₹30/min)
+  const handleStartCall = (listener: ListenerProfile, type: 'audio' | 'video') => {
+    const requiredMinBalance = type === 'video' ? 30 : 9;
+    if (walletBalanceINR < requiredMinBalance) {
+      setLowBalanceModal({
+        visible: true,
+        listener,
+        type,
+      });
+      return;
+    }
+
+    setSelectedListener(listener);
+    setActiveCallType(type);
+    setCurrentScreen('active_call');
+  };
+
+  // Deduct chat costs (₹0.25 text / ₹0.75 image)
+  const handleDeductChatCost = (amount: number, description: string): boolean => {
+    if (walletBalanceINR < amount) {
+      return false;
+    }
+    const newBal = Number((walletBalanceINR - amount).toFixed(2));
+    setWalletBalanceINR(newBal);
+
+    const newTx: WalletTransaction = {
+      id: `tx-${Date.now()}`,
+      userId: 'u-amit',
+      type: 'call_deduction',
+      amountINR: -amount,
+      status: 'completed',
+      description,
+      referenceId: `chat_${Date.now()}`,
+      createdAt: new Date().toISOString(),
+    };
+    setTransactions((prev) => [newTx, ...prev]);
+    return true;
+  };
+
+  // Quick 1-tap recharge from modal and directly connect call
+  const handleQuickRechargeAndCall = (amount: number) => {
+    const newBal = Number((walletBalanceINR + amount).toFixed(2));
+    setWalletBalanceINR(newBal);
+
+    const newTx: WalletTransaction = {
+      id: `tx_${Date.now()}`,
+      userId: 'u-amit',
+      type: 'recharge',
+      amountINR: amount,
+      status: 'completed',
+      description: `Quick Wallet Top-Up ₹${amount}`,
+      referenceId: `order_${Date.now()}`,
+      createdAt: new Date().toISOString(),
+    };
+    setTransactions([newTx, ...transactions]);
+
+    const targetListener = lowBalanceModal.listener || selectedListener;
+    const targetType = lowBalanceModal.type || activeCallType;
+
+    setLowBalanceModal({ visible: false, listener: null, type: 'audio' });
+
+    setSelectedListener(targetListener);
+    setActiveCallType(targetType);
+    setCurrentScreen('active_call');
+  };
+
+  // Call Ended
+  const handleEndCall = (durationSeconds: number, totalCost: number) => {
+    const billedMinutes = Math.max(1, Math.ceil(durationSeconds / 60));
+    const ratePerMin = activeCallType === 'video' ? 30 : 9;
+    const cost = Number((billedMinutes * ratePerMin).toFixed(2));
+    const newBal = Math.max(0, Number((walletBalanceINR - cost).toFixed(2)));
+
+    setWalletBalanceINR(newBal);
+
+    const newTx: WalletTransaction = {
+      id: `tx-${Date.now()}`,
+      userId: 'u-amit',
+      type: 'call_deduction',
+      amountINR: -cost,
+      status: 'completed',
+      description: `${activeCallType === 'video' ? 'Video' : 'Voice'} Call (${billedMinutes} min @ ₹${ratePerMin}/min) with ${selectedListener.username}`,
+      referenceId: `call_${Date.now()}`,
+      createdAt: new Date().toISOString(),
+    };
+    setTransactions([newTx, ...transactions]);
+
+    // Show Call Summary & Rating modal
+    setSummaryData({
+      visible: true,
+      duration: durationSeconds,
+      cost,
+    });
+
+    setCurrentScreen('tab_calls');
+  };
+
+  // Recharge Success
+  const handleRechargeSuccess = (amount: number, cashback: number) => {
+    const totalAdded = amount + cashback;
+    const newBal = Number((walletBalanceINR + totalAdded).toFixed(2));
+    setWalletBalanceINR(newBal);
+
+    const newTx: WalletTransaction = {
+      id: `tx-${Date.now()}`,
+      userId: 'u-amit',
+      type: 'recharge',
+      amountINR: amount,
+      cashbackINR: cashback,
+      status: 'completed',
+      description: `Wallet Recharge ₹${amount} ${cashback > 0 ? `(+₹${cashback} Cashback)` : ''}`,
+      referenceId: `order_${Date.now()}`,
+      createdAt: new Date().toISOString(),
+    };
+    setTransactions([newTx, ...transactions]);
+
+    Alert.alert(
+      'Recharge Successful',
+      `₹${amount} added successfully! ${cashback > 0 ? `Bonus ₹${cashback} cashback credited.` : ''} Your new balance is ₹${newBal.toFixed(2)}.`,
+      [{ text: 'Great', onPress: () => setCurrentScreen('tab_wallet') }]
+    );
+  };
+
+  return (
+    <ErrorBoundary>
+      <DeviceFrame>
+        <SafeAreaView style={styles.safeArea}>
+        <StatusBar barStyle="dark-content" backgroundColor={THEME.colors.white} />
+
+      <View style={styles.container}>
+        {/* Main Tabs */}
+        {currentScreen === 'tab_home' && (
+          <HomeScreen
+            balanceINR={walletBalanceINR}
+            listeners={listeners}
+            onBalancePress={() => handleTabChange('wallet')}
+            onAvatarPress={() => setCurrentScreen('account')}
+            onCategoryPress={() => handleTabChange('calls')}
+            onListenerPress={(l) => {
+              setSelectedListener(l);
+              setCurrentScreen('listener_detail');
+            }}
+            onCallPress={handleStartCall}
+            onBecomeListenerPress={() => setShowOnboardingModal(true)}
+          />
+        )}
+
+        {currentScreen === 'tab_calls' && (
+          <CallsScreen
+            balanceINR={walletBalanceINR}
+            listeners={listeners}
+            onBalancePress={() => handleTabChange('wallet')}
+            onListenerPress={(l) => {
+              setSelectedListener(l);
+              setCurrentScreen('listener_detail');
+            }}
+            onCallPress={handleStartCall}
+          />
+        )}
+
+        {currentScreen === 'tab_chat' && (
+          <ChatScreen
+            balanceINR={walletBalanceINR}
+            onBalancePress={() => handleTabChange('wallet')}
+            onConversationPress={(chat) => {
+              const matched = listeners.find((l) => l.name.toLowerCase().includes(chat.name.toLowerCase())) || listeners[0];
+              setSelectedListener(matched);
+              setCurrentScreen('chat_detail');
+            }}
+          />
+        )}
+
+        {currentScreen === 'tab_wallet' && (
+          <WalletScreen
+            balanceINR={walletBalanceINR}
+            onHistoryPress={() => setCurrentScreen('transactions')}
+            onRechargeSuccess={handleRechargeSuccess}
+          />
+        )}
+
+        {/* Internal Sub-Pages */}
+        {currentScreen === 'chat_detail' && (
+          <ChatDetailScreen
+            partnerName={selectedListener.name}
+            partnerAvatar={selectedListener.avatarUrl}
+            partnerRate={selectedListener.callRatePerMinINR}
+            userBalanceINR={walletBalanceINR}
+            onBackPress={() => setCurrentScreen('tab_chat')}
+            onAudioCallPress={() => handleStartCall(selectedListener, 'audio')}
+            onVideoCallPress={() => handleStartCall(selectedListener, 'video')}
+            onDeductChatCost={handleDeductChatCost}
+            onRechargePress={() => handleTabChange('wallet')}
+          />
+        )}
+
+        {currentScreen === 'listener_detail' && (
+          <ListenerDetailScreen
+            listener={selectedListener}
+            onBackPress={() => setCurrentScreen('tab_calls')}
+            onChatPress={() => setCurrentScreen('chat_detail')}
+            onCallPress={(type) => handleStartCall(selectedListener, type)}
+          />
+        )}
+
+        {currentScreen === 'transactions' && (
+          <TransactionsScreen
+            balanceINR={walletBalanceINR}
+            transactions={transactions}
+            onBackPress={() => handleTabChange('wallet')}
+          />
+        )}
+
+        {currentScreen === 'call_history' && (
+          <CallHistoryScreen
+            onBackPress={() => setCurrentScreen('account')}
+            onCallAgain={(handle, type) => {
+              const matched = listeners.find(l => l.username === handle) || listeners[0];
+              handleStartCall(matched, type);
+            }}
+          />
+        )}
+
+        {currentScreen === 'edit_profile' && (
+          <EditProfileScreen
+            initialName={userName}
+            onBackPress={() => setCurrentScreen('account')}
+            onSaveSuccess={(data) => {
+              if (data.name) setUserName(data.name);
+              if (data.avatarUrl) setUserAvatar(data.avatarUrl);
+              Alert.alert('Profile Saved', 'Your profile details have been updated.');
+            }}
+          />
+        )}
+
+        {currentScreen === 'coupons' && (
+          <CouponsScreen
+            activeCouponCode={activeCoupon.code}
+            onBackPress={() => setCurrentScreen('tab_wallet')}
+            onApplyCoupon={(c) => {
+              setActiveCoupon(c);
+              Alert.alert('Coupon Applied', `${c.code}: ${c.description}`);
+            }}
+          />
+        )}
+
+        {currentScreen === 'account' && (
+          <AccountScreen
+            isListenerVerified={isListenerVerified}
+            onBackPress={() => setCurrentScreen('tab_home')}
+            onTransactionsPress={() => setCurrentScreen('transactions')}
+            onHelpPress={() => setCurrentScreen('help')}
+            onBecomeListenerPress={() => setShowOnboardingModal(true)}
+          />
+        )}
+
+        {currentScreen === 'help' && (
+          <HelpScreen onBackPress={() => setCurrentScreen('account')} />
+        )}
+
+        {currentScreen === 'active_call' && (
+          <ActiveCallScreen
+            listener={selectedListener}
+            callType={activeCallType}
+            userBalanceINR={walletBalanceINR}
+            onEndCall={handleEndCall}
+            onBalanceDepleted={() => {
+              Alert.alert('Call Disconnected', 'Your wallet balance has depleted.');
+              handleEndCall(60, selectedListener.callRatePerMinINR);
+            }}
+          />
+        )}
+
+        {/* Global Bottom Navigation Bar (Visible across 4 primary tabs) */}
+        {['tab_home', 'tab_calls', 'tab_chat', 'tab_wallet'].includes(currentScreen) && (
+          <BottomNavBar
+            activeTab={activeTab}
+            onTabChange={handleTabChange}
+            unreadChatCount={1}
+          />
+        )}
+
+        {/* Listener KYC Onboarding Modal */}
+        <ListenerOnboardingModal
+          visible={showOnboardingModal}
+          onClose={() => setShowOnboardingModal(false)}
+          onSubmitSuccess={() => {
+            setIsListenerVerified(true);
+            Alert.alert(
+              'KYC Application Submitted',
+              'Your voice intro and PAN document have been submitted to the Admin for approval. You will receive a push notification once approved!'
+            );
+          }}
+        />
+
+        {/* Post-Call Summary & Rating Modal */}
+        <CallSummaryModal
+          visible={summaryData.visible}
+          listenerName={selectedListener.name}
+          listenerAvatar={selectedListener.avatarUrl}
+          durationSeconds={summaryData.duration}
+          totalCostINR={summaryData.cost}
+          newBalanceINR={walletBalanceINR}
+          onClose={() => setSummaryData({ visible: false, duration: 0, cost: 0 })}
+        />
+
+        {/* Incoming Call Simulation Modal */}
+        <IncomingCallModal
+          visible={incomingCallData.visible}
+          callerName={incomingCallData.listener.name}
+          callerAvatar={incomingCallData.listener.avatarUrl}
+          callType="audio"
+          ratePerMin={incomingCallData.listener.callRatePerMinINR}
+          onAccept={() => {
+            setIncomingCallData({ ...incomingCallData, visible: false });
+            handleStartCall(incomingCallData.listener, 'audio');
+          }}
+          onDecline={() => setIncomingCallData({ ...incomingCallData, visible: false })}
+        />
+
+        {/* Insufficient Balance Bottom Sheet */}
+        <InsufficientBalanceModal
+          visible={lowBalanceModal.visible}
+          currentBalanceINR={walletBalanceINR}
+          requiredRateINR={lowBalanceModal.listener?.callRatePerMinINR || 9}
+          listenerName={lowBalanceModal.listener?.name || 'Listener'}
+          onClose={() => setLowBalanceModal({ visible: false, listener: null, type: 'audio' })}
+          onQuickRechargeAndCall={handleQuickRechargeAndCall}
+          onGoToWallet={() => {
+            setLowBalanceModal({ visible: false, listener: null, type: 'audio' });
+            handleTabChange('wallet');
+          }}
+        />
+
+        {/* Legal Policy Viewer Modal */}
+        <PolicyModal
+          visible={policyModal.visible}
+          type={policyModal.type}
+          onClose={() => setPolicyModal({ ...policyModal, visible: false })}
+        />
+      </View>
+    </SafeAreaView>
+    </DeviceFrame>
+    </ErrorBoundary>
+  );
+}
+
+const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: THEME.colors.white,
+  },
+  container: {
+    flex: 1,
+    backgroundColor: THEME.colors.background,
+  },
+});

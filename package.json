@@ -1,0 +1,20 @@
+{
+  "name": "chatzie-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*",
+    "server"
+  ],
+  "scripts": {
+    "dev:mobile": "npm --workspace=apps/mobile run dev",
+    "dev:admin": "npm --workspace=apps/web-admin run dev",
+    "dev:server": "npm --workspace=server run dev",
+    "build:admin": "npm --workspace=apps/web-admin run build",
+    "build:server": "npm --workspace=server run build"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.3"
+  }
+}

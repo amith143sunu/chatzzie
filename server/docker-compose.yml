@@ -1,0 +1,73 @@
+version: '3.8'
+
+services:
+  # 1. Fresh Standalone PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: chatzie_postgres
+    restart: always
+    environment:
+      POSTGRES_USER: chatzie_user
+      POSTGRES_PASSWORD: chatzie_secure_password_2026
+      POSTGRES_DB: chatzie_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - chatzie_pgdata:/var/lib/postgresql/data
+    networks:
+      - chatzie_network
+
+  # 2. Fresh Standalone Redis (Presence, Real-time signaling & Sockets)
+  redis:
+    image: redis:7-alpine
+    container_name: chatzie_redis
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - chatzie_redisdata:/data
+    networks:
+      - chatzie_network
+
+  # 3. Chatzie Real-Time API & Socket.io Signaling Server
+  api:
+    build:
+      context: ..
+      dockerfile: server/Dockerfile
+    container_name: chatzie_api
+    restart: always
+    environment:
+      PORT: 8682
+      NODE_ENV: production
+      DATABASE_URL: postgresql://chatzie_user:chatzie_secure_password_2026@postgres:5432/chatzie_db?schema=public
+      REDIS_URL: redis://redis:6379
+    ports:
+      - "8682:8682"
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - chatzie_network
+
+  # 4. Chatzie Next.js Web Admin Backoffice
+  admin:
+    build:
+      context: ..
+      dockerfile: apps/web-admin/Dockerfile
+    container_name: chatzie_admin
+    restart: always
+    environment:
+      PORT: 8681
+      NODE_ENV: production
+    ports:
+      - "8681:8681"
+    networks:
+      - chatzie_network
+
+volumes:
+  chatzie_pgdata:
+  chatzie_redisdata:
+
+networks:
+  chatzie_network:
+    driver: bridge
