@@ -33,13 +33,19 @@ export const ListenerCard: React.FC<ListenerCardProps> = ({
         {/* Avatar with Online Ring */}
         <View style={styles.avatarContainer}>
           <Image source={{ uri: listener.avatarUrl }} style={styles.avatar} />
-          {listener.status === 'online' && <View style={styles.onlineBadge} />}
+          {listener.status === 'busy' ? (
+            <View style={[styles.onlineBadge, { backgroundColor: '#EF4444' }]} />
+          ) : (
+            <View style={styles.onlineBadge} />
+          )}
         </View>
 
         {/* Info Column */}
         <View style={styles.infoCol}>
           <View style={styles.statusHeader}>
-            <Text style={styles.onlineLabel}>ONLINE</Text>
+            <Text style={[styles.onlineLabel, listener.status === 'busy' && { color: '#EF4444' }]}>
+              {listener.status === 'busy' ? '🔴 BUSY (ON CALL)' : 'ONLINE'}
+            </Text>
           </View>
 
           {/* Name & Audio Bio Button */}

@@ -264,7 +264,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
               >
                 <View style={styles.listenerItemAvatarContainer}>
                   <Image source={{ uri: listener.avatarUrl }} style={styles.listenerItemAvatar} />
-                  <View style={styles.onlineDot} />
+                  <View style={[styles.onlineDot, listener.status === 'busy' && { backgroundColor: '#EF4444' }]} />
                 </View>
 
                 <View style={styles.listenerItemInfo}>
@@ -275,7 +275,10 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                       <Text style={styles.ratingBadgeText}>{listener.rating}</Text>
                     </View>
                   </View>
-                  <Text style={styles.listenerItemHandle}>@{listener.username} • {listener.languages.join(', ')}</Text>
+                  <Text style={styles.listenerItemHandle}>
+                    {listener.status === 'busy' ? '🔴 Busy on Call • ' : '🟢 Online • '}
+                    @{listener.username} • {listener.languages.join(', ')}
+                  </Text>
                   <Text style={styles.listenerItemRate}>
                     ₹9/min Voice{listener.isVideoEnabled ? ' • ₹30/min Video' : ''}
                   </Text>
@@ -283,22 +286,32 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
 
                 <View style={styles.actionBtnsGroup}>
                   <TouchableOpacity
-                    style={styles.listenerCallBtn}
+                    style={[styles.listenerCallBtn, listener.status === 'busy' && { backgroundColor: '#F59E0B' }]}
                     onPress={() => onCallPress(listener, 'audio')}
                     activeOpacity={0.85}
                   >
                     <Phone size={12} color={THEME.colors.white} />
-                    <Text style={styles.listenerCallBtnText}>Call ₹9</Text>
+                    <Text style={styles.listenerCallBtnText}>{listener.status === 'busy' ? 'Queue' : 'Call ₹9'}</Text>
                   </TouchableOpacity>
 
                   {listener.isVideoEnabled && (
                     <TouchableOpacity
-                      style={styles.listenerVideoBtn}
+                      style={[
+                        styles.listenerVideoBtn,
+                        listener.status === 'busy' && { borderColor: '#F59E0B', backgroundColor: '#FEF3C7' },
+                      ]}
                       onPress={() => onCallPress(listener, 'video')}
                       activeOpacity={0.85}
                     >
-                      <Video size={12} color="#2563EB" />
-                      <Text style={styles.listenerVideoBtnText}>Video ₹30</Text>
+                      <Video size={12} color={listener.status === 'busy' ? '#D97706' : '#2563EB'} />
+                      <Text
+                        style={[
+                          styles.listenerVideoBtnText,
+                          listener.status === 'busy' && { color: '#D97706' },
+                        ]}
+                      >
+                        {listener.status === 'busy' ? 'Busy' : 'Video ₹30'}
+                      </Text>
                     </TouchableOpacity>
                   )}
                 </View>

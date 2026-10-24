@@ -86,6 +86,10 @@ export const ChatDetailScreen: React.FC<ChatDetailScreenProps> = ({
 }) => {
   const [inputText, setInputText] = useState('');
   const [showPhotoPicker, setShowPhotoPicker] = useState(false);
+  const [policyViolationModal, setPolicyViolationModal] = useState<{ visible: boolean; reason: string }>({
+    visible: false,
+    reason: '',
+  });
   const [messages, setMessages] = useState<Message[]>([
     {
       id: 'm1',
@@ -114,9 +118,25 @@ export const ChatDetailScreen: React.FC<ChatDetailScreenProps> = ({
     'Any good book or show recommendations?'
   ];
 
-  // Send Text Message (Costs ₹0.25)
+  // Send Text Message (Costs ₹0.25) with Strict Anti-Leak & Number Blocking
   const handleSendText = () => {
     if (!inputText.trim()) return;
+
+    const text = inputText;
+    // 1. Numeric digits check (phone numbers, separated digits, etc.)
+    const hasDigits = /\d/.test(text);
+    // 2. Word numbers
+    const wordNumbers = /\b(zero|one|two|three|four|five|six|seven|eight|nine|ek|do|teen|char|paanch|chhe|saat|aath|nau|das)\b/i;
+    // 3. Social media handles
+    const socialPlatforms = /\b(insta|instagram|snap|snapchat|telegram|wa\.me|whatsapp|fb|facebook|paytm|phonepe|gpay|call me|dm me|gmail|email)\b/i;
+
+    if (hasDigits || wordNumbers.test(text) || socialPlatforms.test(text)) {
+      setPolicyViolationModal({
+        visible: true,
+        reason: 'Numeric digits, phone numbers, and external social media handles are strictly prohibited on Chatzie. Exchanging personal contact info outside the platform is monitored by AI and results in permanent account suspension.',
+      });
+      return;
+    }
 
     if (userBalanceINR < 0.25) {
       Alert.alert(
@@ -372,6 +392,44 @@ export const ChatDetailScreen: React.FC<ChatDetailScreenProps> = ({
           <Send size={17} color={THEME.colors.white} />
         </TouchableOpacity>
       </View>
+
+      {/* Real-Time Anti-Leak Safety Banner */}
+      <View style={styles.chatSafetyBar}>
+        <ShieldAlert size={12} color="#059669" />
+        <Text style={styles.chatSafetyText}>
+          SafeChat AI Active: Numbers, phone contacts & external handles are strictly blocked.
+        </Text>
+      </View>
+
+      {/* Policy Violation Modal */}
+      <Modal
+        visible={policyViolationModal.visible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setPolicyViolationModal({ visible: false, reason: '' })}
+      >
+        <View style={styles.policyModalOverlay}>
+          <View style={styles.policyModalCard}>
+            <View style={styles.policyAlertIconCircle}>
+              <ShieldAlert size={32} color="#DC2626" />
+            </View>
+            <Text style={styles.policyModalTitle}>Contact Exchange Prohibited</Text>
+            <Text style={styles.policyModalBody}>{policyViolationModal.reason}</Text>
+            <View style={styles.policyNoticeBox}>
+              <Text style={styles.policyNoticeText}>
+                ⚠️ Account Ban Warning: Exchanging WhatsApp, Phone Numbers, or Social Media outside Chatzie will freeze your wallet and ban your phone number permanently.
+              </Text>
+            </View>
+            <TouchableOpacity
+              style={styles.policyAcknowledgeBtn}
+              onPress={() => setPolicyViolationModal({ visible: false, reason: '' })}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.policyAcknowledgeText}>I Understand & Agree</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
 
       {/* Photo Picker Modal */}
       <Modal
@@ -743,5 +801,84 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#D97706',
     marginTop: 1,
+  },
+  chatSafetyBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#ECFDF5',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#D1FAE5',
+    gap: 6,
+  },
+  chatSafetyText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#065F46',
+  },
+  policyModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.75)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  policyModalCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    padding: 24,
+    width: '100%',
+    maxWidth: 400,
+    alignItems: 'center',
+  },
+  policyAlertIconCircle: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#FEE2E2',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  policyModalTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#991B1B',
+    marginBottom: 8,
+  },
+  policyModalBody: {
+    fontSize: 13,
+    color: '#475569',
+    textAlign: 'center',
+    lineHeight: 19,
+    marginBottom: 16,
+  },
+  policyNoticeBox: {
+    backgroundColor: '#FEF2F2',
+    padding: 12,
+    borderRadius: 12,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: '#FECACA',
+  },
+  policyNoticeText: {
+    fontSize: 11,
+    color: '#991B1B',
+    lineHeight: 16,
+    textAlign: 'center',
+  },
+  policyAcknowledgeBtn: {
+    backgroundColor: '#DC2626',
+    width: '100%',
+    paddingVertical: 12,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  policyAcknowledgeText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '800',
   },
 });

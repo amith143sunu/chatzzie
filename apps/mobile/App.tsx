@@ -24,6 +24,8 @@ import { LoginScreen } from './src/screens/LoginScreen';
 import { HostLiveScreen } from './src/screens/HostLiveScreen';
 import { DeviceFrame, ViewMode } from './src/components/DeviceFrame';
 import { InsufficientBalanceModal } from './src/components/InsufficientBalanceModal';
+import { HostBusyModal } from './src/components/HostBusyModal';
+import { HostFreeAlertModal } from './src/components/HostFreeAlertModal';
 import { ListenerProfile, WalletTransaction, Coupon, DEFAULT_COUPONS } from '@chatzie/shared';
 import { mockListeners, mockTransactions } from './src/data/mockData';
 import { THEME } from './src/theme';
@@ -269,6 +271,36 @@ export default function App() {
   });
   const [activeCoupon, setActiveCoupon] = useState<Coupon>(DEFAULT_COUPONS[0]);
 
+  // Busy Host Queue & Free Alert Modals
+  const [busyHostModal, setBusyHostModal] = useState<{ visible: boolean; host: ListenerProfile | null }>({
+    visible: false,
+    host: null,
+  });
+  const [hostFreeAlert, setHostFreeAlert] = useState<{ visible: boolean; hostName: string; hostUsername: string } | null>(null);
+
+  // Poll for queued host becoming free
+  useEffect(() => {
+    if (!isAuthenticated || userRole === 'listener') return;
+    const checkFree = async () => {
+      try {
+        const baseUrl = getApiBaseUrl();
+        const res = await fetch(`${baseUrl}/api/calls/check-free?callerId=${encodeURIComponent(userId)}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.hasFreeAlert && data.alert) {
+            setHostFreeAlert({
+              visible: true,
+              hostName: data.alert.hostName,
+              hostUsername: data.alert.hostUsername,
+            });
+          }
+        }
+      } catch (e) {}
+    };
+    const timer = setInterval(checkFree, 2500);
+    return () => clearInterval(timer);
+  }, [isAuthenticated, userId, userRole]);
+
   // Handle URL auto-call parameter for instant 2-way Agora testing (audio or video)
   useEffect(() => {
     if (typeof window !== 'undefined' && window.location && window.location.search) {
@@ -295,6 +327,12 @@ export default function App() {
 
   // Trigger audio/video call (Voice: ₹9/min, Video: ₹30/min)
   const handleStartCall = (listener: ListenerProfile, type: 'audio' | 'video') => {
+    // Check if host is busy on another call
+    if (listener.status === 'busy') {
+      setBusyHostModal({ visible: true, host: listener });
+      return;
+    }
+
     const requiredMinBalance = type === 'video' ? 30 : 9;
     if (walletBalanceINR < requiredMinBalance) {
       setLowBalanceModal({
@@ -322,7 +360,15 @@ export default function App() {
           callType: type,
           ratePerMin: type === 'video' ? 30 : 9,
         }),
-      }).catch(() => {});
+      })
+        .then(r => r.json())
+        .then(data => {
+          if (data && data.isBusy) {
+            setBusyHostModal({ visible: true, host: listener });
+            setCurrentScreen('tab_home');
+          }
+        })
+        .catch(() => {});
 
       // Register live session in admin monitor
       fetch(`${baseUrl}/api/calls/start`, {
@@ -794,6 +840,49 @@ export default function App() {
         />
 
 
+
+        {/* Host Busy Modal with Queue Option */}
+        <HostBusyModal
+          visible={busyHostModal.visible}
+          host={busyHostModal.host}
+          callerId={userId}
+          callerName={userName}
+          onClose={() => setBusyHostModal({ visible: false, host: null })}
+        />
+
+        {/* Queued Host Now Free Priority Alert Modal */}
+        {hostFreeAlert && (
+          <HostFreeAlertModal
+            visible={hostFreeAlert.visible}
+            hostName={hostFreeAlert.hostName}
+            hostUsername={hostFreeAlert.hostUsername}
+            onCallNow={() => {
+              const matched = listeners.find(l => l.username === hostFreeAlert.hostUsername) || {
+                id: `list_${hostFreeAlert.hostUsername}`,
+                name: hostFreeAlert.hostName,
+                username: hostFreeAlert.hostUsername,
+                avatarUrl: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=300&q=80',
+                bio: 'Verified Host',
+                languages: ['Hindi', 'English'],
+                callRatePerMinINR: 9,
+                isVideoEnabled: true,
+                status: 'online',
+                rating: 5.0,
+                totalReviews: 12,
+                followersCount: 20,
+                giftsCount: 4,
+                voiceBioUrl: '',
+                voiceBioDurationSeconds: 15,
+                kycStatus: 'verified',
+                panNumber: 'ABCDE1234F',
+                isAvailableForCalls: true,
+              };
+              setHostFreeAlert(null);
+              handleStartCall(matched as any, 'video');
+            }}
+            onClose={() => setHostFreeAlert(null)}
+          />
+        )}
 
         {/* Legal Policy Viewer Modal */}
         <PolicyModal

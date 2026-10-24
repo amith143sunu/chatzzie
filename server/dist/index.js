@@ -144,7 +144,10 @@ app.get('/api/config', (req, res) => {
 // Get online listeners with search and filters
 app.get('/api/listeners', (req, res) => {
     const { language, videoOnly, search } = req.query;
-    let results = [...db_1.mockListeners];
+    let results = db_1.mockListeners.map(l => ({
+        ...l,
+        status: activeHostStatus[l.username] || l.status || 'online',
+    }));
     if (language && typeof language === 'string' && language !== 'All') {
         results = results.filter(l => l.languages.includes(language));
     }
@@ -360,12 +363,34 @@ app.get('/api/calls/token', (req, res) => {
         res.status(500).json({ error: 'Failed to generate token', details: err.message });
     }
 });
+// Active State Trackers
 const activeCallChannels = {};
 const activeRingingCalls = {};
-// 1. Caller dials host
+const activeHostStatus = {};
+const notifyQueue = {};
+const notifiedFreeAlerts = {};
+const hostCallLogs = {};
+const hostMissedCalls = {};
+// 1. Caller dials host (Checks if host is busy or offline)
 app.post('/api/calls/dial', (req, res) => {
     const { callerName, callerId, listenerUsername, callType, ratePerMin } = req.body;
     const channel = `call_${listenerUsername}`;
+    // Check if Host is busy on another call
+    if (activeHostStatus[listenerUsername] === 'busy') {
+        if (!hostMissedCalls[listenerUsername])
+            hostMissedCalls[listenerUsername] = [];
+        hostMissedCalls[listenerUsername].unshift({
+            id: `mc_${Date.now()}`,
+            callerName: callerName || 'Anonymous Caller',
+            callerId: callerId || 'u_caller',
+            timestamp: Date.now(),
+        });
+        return res.json({
+            success: false,
+            isBusy: true,
+            message: `${listenerUsername} is currently on another call.`,
+        });
+    }
     activeCallChannels[channel] = { status: 'active', timestamp: Date.now() };
     activeRingingCalls[listenerUsername] = {
         channel,
@@ -378,6 +403,108 @@ app.post('/api/calls/dial', (req, res) => {
         status: 'ringing',
     };
     res.json({ success: true, call: activeRingingCalls[listenerUsername] });
+});
+// Caller requests to be notified when host becomes free
+app.post('/api/calls/notify-queue', (req, res) => {
+    const { hostUsername, callerId, callerName } = req.body;
+    if (!hostUsername)
+        return res.status(400).json({ error: 'Host username required' });
+    if (!notifyQueue[hostUsername])
+        notifyQueue[hostUsername] = [];
+    if (!notifyQueue[hostUsername].some(q => q.callerId === callerId)) {
+        notifyQueue[hostUsername].push({ callerId: callerId || 'u_caller', callerName: callerName || 'Caller', timestamp: Date.now() });
+    }
+    res.json({ success: true, message: 'Added to notify queue' });
+});
+// Caller polls to see if a queued host became free
+app.get('/api/calls/check-free', (req, res) => {
+    const { callerId } = req.query;
+    if (!callerId || typeof callerId !== 'string')
+        return res.json({ hasFreeAlert: false });
+    const alert = notifiedFreeAlerts[callerId];
+    if (alert && Date.now() - alert.timestamp < 120000) {
+        delete notifiedFreeAlerts[callerId];
+        return res.json({ hasFreeAlert: true, alert });
+    }
+    res.json({ hasFreeAlert: false });
+});
+// Host toggles Online / Offline / Break
+app.post('/api/host/toggle-status', (req, res) => {
+    const { hostUsername, isOnline } = req.body;
+    activeHostStatus[hostUsername] = isOnline ? 'online' : 'offline';
+    const listener = db_1.mockListeners.find(l => l.username === hostUsername);
+    if (listener) {
+        listener.status = isOnline ? 'online' : 'offline';
+        listener.isAvailableForCalls = isOnline;
+    }
+    io.emit('listeners_updated', db_1.mockListeners);
+    res.json({ success: true, status: activeHostStatus[hostUsername] });
+});
+// Host Workstation full operational data (Calls, Chats, Earnings, Missed Calls)
+app.get('/api/host/workstation-data/:username', (req, res) => {
+    const { username } = req.params;
+    const listener = db_1.mockListeners.find(l => l.username === username);
+    const logs = hostCallLogs[username] || [
+        {
+            id: 'cl_init_1',
+            callerName: 'Amit (Caller)',
+            durationSeconds: 180,
+            earnedINR: 48.00,
+            callType: 'video',
+            timestamp: Date.now() - 3600000,
+        },
+        {
+            id: 'cl_init_2',
+            callerName: 'Rajesh K.',
+            durationSeconds: 240,
+            earnedINR: 18.00,
+            callType: 'audio',
+            timestamp: Date.now() - 7200000,
+        }
+    ];
+    const missed = hostMissedCalls[username] || [
+        {
+            id: 'mc_init_1',
+            callerName: 'Vikram Singh',
+            callerId: 'u_vikram',
+            timestamp: Date.now() - 1800000,
+        }
+    ];
+    const payouts = db_1.mockPayouts.filter(p => p.listenerName.toLowerCase().includes(username.toLowerCase()) || p.listenerId === listener?.id);
+    res.json({
+        success: true,
+        status: activeHostStatus[username] || 'online',
+        totalEarnedINR: listener?.totalEarnedINR || 8420.00,
+        earningsBalanceINR: listener?.earningsBalanceINR || 2340.00,
+        callLogs: logs,
+        missedCalls: missed,
+        payoutHistory: payouts,
+    });
+});
+// Host requests UPI withdrawal
+app.post('/api/host/request-payout', (req, res) => {
+    const { hostUsername, amountINR, upiId } = req.body;
+    const amount = Number(amountINR);
+    if (!amount || amount < 200) {
+        return res.status(400).json({ error: 'Minimum withdrawal amount is ₹200' });
+    }
+    const listener = db_1.mockListeners.find(l => l.username === hostUsername) || db_1.mockListeners[0];
+    const newPayout = {
+        id: `po-${Date.now()}`,
+        listenerId: listener.id,
+        listenerName: listener.name,
+        amountINR: amount,
+        upiId: upiId || 'host@upi',
+        status: 'pending',
+        requestedAt: new Date().toISOString(),
+    };
+    db_1.mockPayouts.unshift(newPayout);
+    io.emit('payout_requested', newPayout);
+    res.json({
+        success: true,
+        message: `Withdrawal request for ₹${amount} via UPI (${upiId}) successfully submitted for admin settlement.`,
+        payout: newPayout,
+    });
 });
 // 2. Host polls for incoming calls (e.g. Host waiting on Laptop)
 app.get('/api/calls/check-incoming', (req, res) => {
@@ -426,6 +553,12 @@ app.post('/api/calls/start', (req, res) => {
     const { channel, caller, listener, type, ratePerMinINR } = req.body;
     if (channel) {
         activeCallChannels[channel] = { status: 'active', timestamp: Date.now() };
+        const hostUser = channel.replace('call_', '');
+        if (hostUser) {
+            activeHostStatus[hostUser] = 'busy';
+            io.emit('host_status_change', { hostUsername: hostUser, status: 'busy' });
+            io.emit('listeners_updated', db_1.mockListeners);
+        }
     }
     const existing = exports.activeLiveSessions.find(s => s.channel === channel);
     if (!existing) {
@@ -449,16 +582,50 @@ app.post('/api/calls/start', (req, res) => {
 // Audio: ₹9/min caller -> ₹4.50/min listener | Video: ₹30/min caller -> ₹16/min listener
 app.post('/api/calls/end', (req, res) => {
     const { channel, durationSeconds, callerId = 'u-amit', listenerId, callType = 'audio' } = req.body;
-    if (channel) {
-        activeCallChannels[channel] = { status: 'ended', timestamp: Date.now() };
-        io.emit('call_ended', { channel });
-    }
+    const hostRatePerMin = callType === 'video' ? 16.0 : 4.5;
     const billedMinutes = Math.max(1, Math.ceil((Number(durationSeconds) || 0) / 60));
     const ratePerMin = callType === 'video' ? 30.0 : 9.0;
     const callerCharged = Number((billedMinutes * ratePerMin).toFixed(2));
-    const hostRatePerMin = callType === 'video' ? 16.0 : 4.5;
     const hostEarned = Number((billedMinutes * hostRatePerMin).toFixed(2));
     const platformRetained = Number((callerCharged - hostEarned).toFixed(2));
+    if (channel) {
+        activeCallChannels[channel] = { status: 'ended', timestamp: Date.now() };
+        io.emit('call_ended', { channel });
+        const hostUser = channel.replace('call_', '');
+        if (hostUser) {
+            activeHostStatus[hostUser] = 'online';
+            io.emit('host_status_change', { hostUsername: hostUser, status: 'online' });
+            io.emit('listeners_updated', db_1.mockListeners);
+            // Save to hostCallLogs
+            if (!hostCallLogs[hostUser])
+                hostCallLogs[hostUser] = [];
+            hostCallLogs[hostUser].unshift({
+                id: `cl_${Date.now()}`,
+                callerName: callerId || 'Caller',
+                durationSeconds: Number(durationSeconds) || 60,
+                earnedINR: hostEarned,
+                callType: callType || 'audio',
+                timestamp: Date.now(),
+            });
+            // Notify queued callers waiting for this host
+            const waitingCallers = notifyQueue[hostUser] || [];
+            if (waitingCallers.length > 0) {
+                waitingCallers.forEach(q => {
+                    notifiedFreeAlerts[q.callerId] = {
+                        hostUsername: hostUser,
+                        hostName: hostUser,
+                        timestamp: Date.now(),
+                    };
+                });
+                io.emit('host_now_free', {
+                    hostUsername: hostUser,
+                    hostName: hostUser,
+                    callerIds: waitingCallers.map(q => q.callerId),
+                });
+                delete notifyQueue[hostUser];
+            }
+        }
+    }
     // 1. Terminate active session in admin live monitor
     const sess = exports.activeLiveSessions.find(s => s.channel === channel);
     if (sess) {

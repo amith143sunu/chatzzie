@@ -24,7 +24,9 @@ import {
   ExternalLink,
   Users,
   Bell,
-  Activity
+  Activity,
+  AlertCircle,
+  Sparkles
 } from 'lucide-react-native';
 import { ListenerProfile } from '@chatzie/shared';
 import { THEME } from '../theme';
@@ -461,6 +463,34 @@ export const ActiveCallScreen: React.FC<ActiveCallScreenProps> = ({
               : `₹${effectiveRatePerMinINR}/min • Bal: ₹${remainingBalance.toFixed(2)}`}
           </Text>
         </View>
+      </View>
+
+      {/* Emergency Low Balance In-Call Warning Banner */}
+      {!isHost && remainingBalance <= effectiveRatePerMinINR && (
+        <View style={styles.lowBalanceBanner}>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <AlertCircle size={15} color="#B45309" style={{ marginRight: 6 }} />
+            <Text style={styles.lowBalanceText}>1 Min Left (₹{remainingBalance.toFixed(2)})</Text>
+          </View>
+          <TouchableOpacity
+            style={styles.quickRechargeInCallBtn}
+            onPress={() => {
+              setRemainingBalance(prev => prev + 50);
+            }}
+            activeOpacity={0.85}
+          >
+            <Sparkles size={12} color="#FFFFFF" />
+            <Text style={styles.quickRechargeInCallText}>+₹50 Quick Add</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* AI SafeTalk Prohibited Personal Data Warning Pill */}
+      <View style={styles.safeTalkBanner}>
+        <ShieldCheck size={12} color="#10B981" />
+        <Text style={styles.safeTalkBannerText}>
+          SafeTalk AI Active • Contact, phone & social handles exchange strictly prohibited
+        </Text>
       </View>
 
       {/* Main Calling Stage */}
@@ -1434,5 +1464,51 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontWeight: '700',
     fontSize: 14,
-  }
+  },
+  lowBalanceBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#FDE68A',
+  },
+  lowBalanceText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#B45309',
+  },
+  quickRechargeInCallBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#D97706',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+    gap: 4,
+  },
+  quickRechargeInCallText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#FFFFFF',
+  },
+  safeTalkBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#0F172A',
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#1E293B',
+    gap: 6,
+  },
+  safeTalkBannerText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#A7F3D0',
+    letterSpacing: 0.2,
+  },
 });
