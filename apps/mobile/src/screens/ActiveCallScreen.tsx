@@ -62,12 +62,15 @@ export const ActiveCallScreen: React.FC<ActiveCallScreenProps> = ({
   const [remoteVolume, setRemoteVolume] = useState<number>(0);
   const [rtcStats, setRtcStats] = useState<{ userCount: number; rtt: number }>({ userCount: 1, rtt: 0 });
   const [autoplayBlocked, setAutoplayBlocked] = useState<boolean>(false);
+  const [cameraBlocked, setCameraBlocked] = useState<boolean>(false);
   const [chimePlaying, setChimePlaying] = useState<boolean>(false);
 
   const clientRef = useRef<any>(null);
   const localTrackRef = useRef<any>(null);
   const cameraTrackRef = useRef<any>(null);
   const currentUidRef = useRef<number>(0);
+  const localVideoRef = useRef<any>(null);
+  const remoteVideoRef = useRef<any>(null);
 
   // Play a crisp in-call test chime using Web Audio API to verify speakers
   const playTestChime = () => {
@@ -153,13 +156,15 @@ export const ActiveCallScreen: React.FC<ActiveCallScreenProps> = ({
               setHasRemoteUser(true);
               setAgoraStatus('Live 2-Way Video Connected!');
               setTimeout(() => {
-                const el = document.getElementById('agora-remote-video');
+                const el = remoteVideoRef.current || document.getElementById('agora-remote-video');
                 if (el && user.videoTrack) {
                   try {
                     user.videoTrack.play(el);
-                  } catch (e) {}
+                  } catch (e) {
+                    console.warn('Remote video play error:', e);
+                  }
                 }
-              }, 400);
+              }, 300);
             }
           } catch (e) {
             console.warn('Subscribe error:', e);
@@ -199,8 +204,10 @@ export const ActiveCallScreen: React.FC<ActiveCallScreenProps> = ({
               encoderConfig: '480p_1',
             });
             cameraTrackRef.current = cameraTrack;
-          } catch (camErr) {
+          } catch (camErr: any) {
             console.warn('Camera initialization notice:', camErr);
+            setCameraBlocked(true);
+            setAgoraStatus('Camera access blocked: Please allow camera in browser address bar');
           }
         }
 
@@ -221,13 +228,15 @@ export const ActiveCallScreen: React.FC<ActiveCallScreenProps> = ({
           // Play local camera preview in PiP box
           if (cameraTrack) {
             setTimeout(() => {
-              const el = document.getElementById('agora-local-video');
+              const el = localVideoRef.current || document.getElementById('agora-local-video');
               if (el && cameraTrackRef.current) {
                 try {
                   cameraTrackRef.current.play(el);
-                } catch (e) {}
+                } catch (e) {
+                  console.warn('Local camera play error:', e);
+                }
               }
-            }, 400);
+            }, 300);
           }
 
           // Check if remote users are already present
@@ -247,13 +256,15 @@ export const ActiveCallScreen: React.FC<ActiveCallScreenProps> = ({
                 await client.subscribe(u, 'video');
                 setHasRemoteVideo(true);
                 setTimeout(() => {
-                  const el = document.getElementById('agora-remote-video');
+                  const el = remoteVideoRef.current || document.getElementById('agora-remote-video');
                   if (el && u.videoTrack) {
                     try {
                       u.videoTrack.play(el);
-                    } catch (e) {}
+                    } catch (e) {
+                      console.warn('Remote video play error:', e);
+                    }
                   }
-                }, 400);
+                }, 300);
               }
             });
           } else {
@@ -400,7 +411,13 @@ export const ActiveCallScreen: React.FC<ActiveCallScreenProps> = ({
       {callType === 'video' ? (
         <View style={styles.videoCallingStage}>
           {/* Remote Video Container Layer */}
-          <View nativeID="agora-remote-video" style={styles.remoteVideoLayer}>
+          <View
+            ref={remoteVideoRef}
+            // @ts-ignore
+            id="agora-remote-video"
+            nativeID="agora-remote-video"
+            style={styles.remoteVideoLayer}
+          >
             {!hasRemoteVideo && (
               <View style={styles.videoWaitingOverlay}>
                 <Image source={{ uri: listener.avatarUrl }} style={styles.listenerAvatarVideo} />
@@ -411,7 +428,13 @@ export const ActiveCallScreen: React.FC<ActiveCallScreenProps> = ({
           </View>
 
           {/* Floating Local Camera PiP (Self View) */}
-          <View nativeID="agora-local-video" style={styles.localVideoPiP}>
+          <View
+            ref={localVideoRef}
+            // @ts-ignore
+            id="agora-local-video"
+            nativeID="agora-local-video"
+            style={styles.localVideoPiP}
+          >
             {isCameraOff && (
               <View style={styles.cameraOffOverlay}>
                 <VideoOff size={16} color="#FFFFFF" />
