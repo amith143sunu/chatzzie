@@ -10,6 +10,7 @@ import {
   Alert,
   Modal,
   ActivityIndicator,
+  useWindowDimensions,
 } from 'react-native';
 import {
   Radio,
@@ -37,7 +38,8 @@ import {
   X,
   PhoneIncoming,
   PhoneMissed,
-  CheckCheck
+  CheckCheck,
+  ArrowLeft,
 } from 'lucide-react-native';
 import { THEME } from '../theme';
 import { getApiBaseUrl } from '../services/apiConfig';
@@ -66,6 +68,9 @@ export const HostLiveScreen: React.FC<HostLiveScreenProps> = ({
   onAcceptCall,
   onLogout,
 }) => {
+  const { width } = useWindowDimensions();
+  const isMobile = width < 768;
+
   const [activeTab, setActiveTab] = useState<HostTab>('radar');
   const [isLive, setIsLive] = useState(true);
   const [totalEarningsINR, setTotalEarningsINR] = useState(8420.00);
@@ -181,7 +186,7 @@ export const HostLiveScreen: React.FC<HostLiveScreenProps> = ({
         if (chatData.success && Array.isArray(chatData.conversations)) {
           setChatConversations(chatData.conversations);
           setActiveChatCaller((prevActive: any) => {
-            if (!prevActive) return chatData.conversations[0] || null;
+            if (!prevActive) return isMobile ? null : (chatData.conversations[0] || null);
             const updated = chatData.conversations.find((c: any) => c.id === prevActive.id);
             return updated || prevActive;
           });
@@ -440,62 +445,68 @@ export const HostLiveScreen: React.FC<HostLiveScreenProps> = ({
       </View>
 
       {/* Host Navigation Tabs (Workstation) */}
-      <View style={styles.navTabsBar}>
-        <TouchableOpacity
-          style={[styles.navTabBtn, activeTab === 'radar' && styles.navTabBtnActive]}
-          onPress={() => setActiveTab('radar')}
-          activeOpacity={0.85}
+      <View style={{ backgroundColor: '#FFFFFF', borderBottomWidth: 1, borderBottomColor: '#E2E8F0' }}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.navTabsBar}
         >
-          <Radio size={16} color={activeTab === 'radar' ? '#2563EB' : '#64748B'} />
-          <Text style={[styles.navTabText, activeTab === 'radar' && styles.navTabTextActive]}>
-            Live Radar
-          </Text>
-        </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.navTabBtn, activeTab === 'radar' && styles.navTabBtnActive]}
+            onPress={() => setActiveTab('radar')}
+            activeOpacity={0.85}
+          >
+            <Radio size={16} color={activeTab === 'radar' ? '#2563EB' : '#64748B'} />
+            <Text style={[styles.navTabText, activeTab === 'radar' && styles.navTabTextActive]}>
+              Live Radar
+            </Text>
+          </TouchableOpacity>
 
-        <TouchableOpacity
-          style={[styles.navTabBtn, activeTab === 'chats' && styles.navTabBtnActive]}
-          onPress={() => setActiveTab('chats')}
-          activeOpacity={0.85}
-        >
-          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <MessageSquare size={16} color={activeTab === 'chats' ? '#2563EB' : '#64748B'} />
-            <View style={styles.unreadCountBadge}>
-              <Text style={styles.unreadCountText}>1</Text>
-            </View>
-          </View>
-          <Text style={[styles.navTabText, activeTab === 'chats' && styles.navTabTextActive]}>
-            Caller Chats
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.navTabBtn, activeTab === 'calls' && styles.navTabBtnActive]}
-          onPress={() => setActiveTab('calls')}
-          activeOpacity={0.85}
-        >
-          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <PhoneIncoming size={16} color={activeTab === 'calls' ? '#2563EB' : '#64748B'} />
-            {missedCalls.length > 0 && (
-              <View style={[styles.unreadCountBadge, { backgroundColor: '#EF4444' }]}>
-                <Text style={styles.unreadCountText}>{missedCalls.length}</Text>
+          <TouchableOpacity
+            style={[styles.navTabBtn, activeTab === 'chats' && styles.navTabBtnActive]}
+            onPress={() => setActiveTab('chats')}
+            activeOpacity={0.85}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <MessageSquare size={16} color={activeTab === 'chats' ? '#2563EB' : '#64748B'} />
+              <View style={styles.unreadCountBadge}>
+                <Text style={styles.unreadCountText}>1</Text>
               </View>
-            )}
-          </View>
-          <Text style={[styles.navTabText, activeTab === 'calls' && styles.navTabTextActive]}>
-            Call Logs & Queue
-          </Text>
-        </TouchableOpacity>
+            </View>
+            <Text style={[styles.navTabText, activeTab === 'chats' && styles.navTabTextActive]}>
+              Caller Chats
+            </Text>
+          </TouchableOpacity>
 
-        <TouchableOpacity
-          style={[styles.navTabBtn, activeTab === 'payouts' && styles.navTabBtnActive]}
-          onPress={() => setActiveTab('payouts')}
-          activeOpacity={0.85}
-        >
-          <Wallet size={16} color={activeTab === 'payouts' ? '#2563EB' : '#64748B'} />
-          <Text style={[styles.navTabText, activeTab === 'payouts' && styles.navTabTextActive]}>
-            Earnings & UPI
-          </Text>
-        </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.navTabBtn, activeTab === 'calls' && styles.navTabBtnActive]}
+            onPress={() => setActiveTab('calls')}
+            activeOpacity={0.85}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <PhoneIncoming size={16} color={activeTab === 'calls' ? '#2563EB' : '#64748B'} />
+              {missedCalls.length > 0 && (
+                <View style={[styles.unreadCountBadge, { backgroundColor: '#EF4444' }]}>
+                  <Text style={styles.unreadCountText}>{missedCalls.length}</Text>
+                </View>
+              )}
+            </View>
+            <Text style={[styles.navTabText, activeTab === 'calls' && styles.navTabTextActive]}>
+              Call Logs & Queue
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.navTabBtn, activeTab === 'payouts' && styles.navTabBtnActive]}
+            onPress={() => setActiveTab('payouts')}
+            activeOpacity={0.85}
+          >
+            <Wallet size={16} color={activeTab === 'payouts' ? '#2563EB' : '#64748B'} />
+            <Text style={[styles.navTabText, activeTab === 'payouts' && styles.navTabTextActive]}>
+              Earnings & UPI
+            </Text>
+          </TouchableOpacity>
+        </ScrollView>
       </View>
 
       {/* ============================================================== */}
@@ -591,118 +602,131 @@ export const HostLiveScreen: React.FC<HostLiveScreenProps> = ({
       {/* ============================================================== */}
       {activeTab === 'chats' && (
         <View style={styles.chatContainer}>
-          {/* Left / Conversation List */}
-          <View style={styles.chatListPane}>
-            <View style={styles.chatListHeader}>
-              <Text style={styles.paneTitle}>Caller Messages</Text>
-              <Text style={styles.paneSub}>Earn ₹0.125 per text reply</Text>
-            </View>
+          {/* Left / Conversation List (Visible on desktop OR on mobile when no caller is selected) */}
+          {(!isMobile || !activeChatCaller) && (
+            <View style={[styles.chatListPane, isMobile && { width: '100%', borderRightWidth: 0 }]}>
+              <View style={styles.chatListHeader}>
+                <Text style={styles.paneTitle}>Caller Messages</Text>
+                <Text style={styles.paneSub}>Earn ₹0.125 per text reply</Text>
+              </View>
 
-            <ScrollView>
-              {chatConversations.map(c => (
-                <TouchableOpacity
-                  key={c.id}
-                  style={[
-                    styles.conversationItem,
-                    activeChatCaller?.id === c.id && styles.conversationItemActive,
-                  ]}
-                  onPress={() => setActiveChatCaller(c)}
-                  activeOpacity={0.85}
-                >
-                  <Image source={{ uri: c.avatar }} style={styles.callerAvatar} />
-                  <View style={{ flex: 1, marginLeft: 10 }}>
-                    <View style={styles.convHeaderRow}>
-                      <Text style={styles.callerNameText}>{c.callerName}</Text>
-                      <Text style={styles.convTimeText}>{c.time}</Text>
-                    </View>
-                    <Text style={styles.convLastMsg} numberOfLines={1}>
-                      {c.lastMessage}
-                    </Text>
-                  </View>
-                  {c.unread > 0 && <View style={styles.unreadDot} />}
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-          </View>
-
-          {/* Right / Message Detail Thread */}
-          <View style={styles.chatThreadPane}>
-            {activeChatCaller ? (
-              <View style={{ flex: 1 }}>
-                {/* Thread Header */}
-                <View style={styles.threadHeader}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                    <Image source={{ uri: activeChatCaller.avatar }} style={styles.smallAvatar} />
-                    <View style={{ marginLeft: 8 }}>
-                      <Text style={styles.threadCallerName}>{activeChatCaller.callerName}</Text>
-                      <Text style={styles.threadSub}>Caller • Active 1:1 Session</Text>
-                    </View>
-                  </View>
-
-                  <View style={styles.threadSecurityBadge}>
-                    <ShieldCheck size={12} color="#10B981" />
-                    <Text style={styles.threadSecurityText}>Anti-Leak AI Active</Text>
-                  </View>
-                </View>
-
-                {/* Messages View */}
-                <ScrollView contentContainerStyle={styles.messagesScroll}>
-                  {activeChatCaller.messages.map((m: any) => (
-                    <View
-                      key={m.id}
-                      style={[
-                        styles.messageBubble,
-                        m.sender === 'host' ? styles.bubbleHost : styles.bubbleCaller,
-                      ]}
-                    >
-                      <Text
-                        style={[
-                          styles.messageText,
-                          m.sender === 'host' ? styles.msgTextHost : styles.msgTextCaller,
-                        ]}
-                      >
-                        {m.text}
-                      </Text>
-                      <Text
-                        style={[
-                          styles.msgTime,
-                          m.sender === 'host' ? styles.msgTimeHost : styles.msgTimeCaller,
-                        ]}
-                      >
-                        {m.time}
-                      </Text>
-                    </View>
-                  ))}
-                </ScrollView>
-
-                {/* Input Bar with Anti-Leak Filter */}
-                <View style={styles.hostChatInputBar}>
-                  <TextInput
-                    style={styles.chatTextInput}
-                    placeholder="Type your reply (Numbers & personal handles blocked)..."
-                    placeholderTextColor="#94A3B8"
-                    value={hostReplyText}
-                    onChangeText={setHostReplyText}
-                  />
+              <ScrollView>
+                {chatConversations.map(c => (
                   <TouchableOpacity
-                    style={styles.sendMsgBtn}
-                    onPress={validateAndSendHostReply}
+                    key={c.id}
+                    style={[
+                      styles.conversationItem,
+                      activeChatCaller?.id === c.id && styles.conversationItemActive,
+                    ]}
+                    onPress={() => setActiveChatCaller(c)}
                     activeOpacity={0.85}
                   >
-                    <Send size={16} color="#FFFFFF" />
+                    <Image source={{ uri: c.avatar }} style={styles.callerAvatar} />
+                    <View style={{ flex: 1, marginLeft: 10 }}>
+                      <View style={styles.convHeaderRow}>
+                        <Text style={styles.callerNameText}>{c.callerName}</Text>
+                        <Text style={styles.convTimeText}>{c.time}</Text>
+                      </View>
+                      <Text style={styles.convLastMsg} numberOfLines={1}>
+                        {c.lastMessage}
+                      </Text>
+                    </View>
+                    {c.unread > 0 && <View style={styles.unreadDot} />}
                   </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+          )}
+
+          {/* Right / Message Detail Thread (Visible on desktop OR on mobile when a caller is selected) */}
+          {(!isMobile || activeChatCaller) && (
+            <View style={[styles.chatThreadPane, isMobile && { width: '100%' }]}>
+              {activeChatCaller ? (
+                <View style={{ flex: 1 }}>
+                  {/* Thread Header */}
+                  <View style={styles.threadHeader}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                      {isMobile && (
+                        <TouchableOpacity
+                          onPress={() => setActiveChatCaller(null)}
+                          style={{ marginRight: 10, padding: 4 }}
+                          activeOpacity={0.7}
+                        >
+                          <ArrowLeft size={20} color="#0F172A" />
+                        </TouchableOpacity>
+                      )}
+                      <Image source={{ uri: activeChatCaller.avatar }} style={styles.smallAvatar} />
+                      <View style={{ marginLeft: 8 }}>
+                        <Text style={styles.threadCallerName}>{activeChatCaller.callerName}</Text>
+                        <Text style={styles.threadSub}>Caller • Active 1:1 Session</Text>
+                      </View>
+                    </View>
+
+                    <View style={styles.threadSecurityBadge}>
+                      <ShieldCheck size={12} color="#10B981" />
+                      <Text style={styles.threadSecurityText}>Anti-Leak AI Active</Text>
+                    </View>
+                  </View>
+
+                  {/* Messages View */}
+                  <ScrollView contentContainerStyle={styles.messagesScroll}>
+                    {activeChatCaller.messages.map((m: any) => (
+                      <View
+                        key={m.id}
+                        style={[
+                          styles.messageBubble,
+                          m.sender === 'host' ? styles.bubbleHost : styles.bubbleCaller,
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.messageText,
+                            m.sender === 'host' ? styles.msgTextHost : styles.msgTextCaller,
+                          ]}
+                        >
+                          {m.text}
+                        </Text>
+                        <Text
+                          style={[
+                            styles.msgTime,
+                            m.sender === 'host' ? styles.msgTimeHost : styles.msgTimeCaller,
+                          ]}
+                        >
+                          {m.time}
+                        </Text>
+                      </View>
+                    ))}
+                  </ScrollView>
+
+                  {/* Input Bar with Anti-Leak Filter */}
+                  <View style={styles.hostChatInputBar}>
+                    <TextInput
+                      style={styles.chatTextInput}
+                      placeholder="Type your reply (Numbers & personal handles blocked)..."
+                      placeholderTextColor="#94A3B8"
+                      value={hostReplyText}
+                      onChangeText={setHostReplyText}
+                    />
+                    <TouchableOpacity
+                      style={styles.sendMsgBtn}
+                      onPress={validateAndSendHostReply}
+                      activeOpacity={0.85}
+                    >
+                      <Send size={16} color="#FFFFFF" />
+                    </TouchableOpacity>
+                  </View>
                 </View>
-              </View>
-            ) : (
-              <View style={styles.emptyThreadState}>
-                <MessageSquare size={36} color="#94A3B8" />
-                <Text style={styles.emptyThreadTitle}>Select a Conversation</Text>
-                <Text style={styles.emptyThreadSub}>
-                  Click on any caller on the left to read messages and reply.
-                </Text>
-              </View>
-            )}
-          </View>
+              ) : (
+                <View style={styles.emptyThreadState}>
+                  <MessageSquare size={36} color="#94A3B8" />
+                  <Text style={styles.emptyThreadTitle}>Select a Conversation</Text>
+                  <Text style={styles.emptyThreadSub}>
+                    Click on any caller on the left to read messages and reply.
+                  </Text>
+                </View>
+              )}
+            </View>
+          )}
         </View>
       )}
 
@@ -971,11 +995,13 @@ const styles = StyleSheet.create({
   },
   topBar: {
     backgroundColor: '#0F172A',
-    paddingHorizontal: 20,
-    paddingVertical: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    flexWrap: 'wrap',
+    gap: 8,
     borderBottomWidth: 1,
     borderBottomColor: '#1E293B',
   },

@@ -257,38 +257,42 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         <View style={isDesktop ? styles.desktopFeaturedGrid : styles.featuredList}>
           {listeners.slice(0, isDesktop ? 4 : 3).map((listener) => (
             <View key={listener.id} style={isDesktop ? styles.desktopCardCol : undefined}>
-              <TouchableOpacity
-                style={isDesktop ? styles.desktopListenerCard : styles.listenerItem}
-                onPress={() => onListenerPress(listener)}
-                activeOpacity={0.85}
-              >
-                <View style={styles.listenerItemAvatarContainer}>
-                  <Image source={{ uri: listener.avatarUrl }} style={styles.listenerItemAvatar} />
-                  <View style={[styles.onlineDot, listener.status === 'busy' && { backgroundColor: '#EF4444' }]} />
-                </View>
-
-                <View style={styles.listenerItemInfo}>
-                  <View style={styles.nameRow}>
-                    <Text style={styles.listenerItemName}>{listener.name}</Text>
-                    <View style={styles.ratingBadgeSmall}>
-                      <Star size={11} color="#F59E0B" fill="#F59E0B" />
-                      <Text style={styles.ratingBadgeText}>{listener.rating}</Text>
-                    </View>
+              <View style={isDesktop ? styles.desktopListenerCard : styles.listenerItem}>
+                {/* Profile Click Target */}
+                <TouchableOpacity
+                  style={{ flexDirection: 'row', alignItems: 'center', flex: 1, minWidth: 0 }}
+                  onPress={() => onListenerPress(listener)}
+                  activeOpacity={0.8}
+                >
+                  <View style={styles.listenerItemAvatarContainer}>
+                    <Image source={{ uri: listener.avatarUrl }} style={styles.listenerItemAvatar} />
+                    <View style={[styles.onlineDot, listener.status === 'busy' && { backgroundColor: '#EF4444' }]} />
                   </View>
-                  <Text style={styles.listenerItemHandle}>
-                    {listener.status === 'busy' ? '🔴 Busy on Call • ' : '🟢 Online • '}
-                    @{listener.username} • {listener.languages.join(', ')}
-                  </Text>
-                  <Text style={styles.listenerItemRate}>
-                    ₹9/min Voice{listener.isVideoEnabled ? ' • ₹30/min Video' : ''}
-                  </Text>
-                </View>
 
+                  <View style={styles.listenerItemInfo}>
+                    <View style={styles.nameRow}>
+                      <Text style={styles.listenerItemName} numberOfLines={1}>{listener.name}</Text>
+                      <View style={styles.ratingBadgeSmall}>
+                        <Star size={11} color="#F59E0B" fill="#F59E0B" />
+                        <Text style={styles.ratingBadgeText}>{listener.rating}</Text>
+                      </View>
+                    </View>
+                    <Text style={styles.listenerItemHandle} numberOfLines={1}>
+                      {listener.status === 'busy' ? '🔴 Busy on Call • ' : '🟢 Online • '}
+                      @{listener.username} • {listener.languages.join(', ')}
+                    </Text>
+                    <Text style={styles.listenerItemRate}>
+                      ₹9/min Voice{listener.isVideoEnabled ? ' • ₹30/min Video' : ''}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+
+                {/* Independent Call Action Buttons */}
                 <View style={styles.actionBtnsGroup}>
                   <TouchableOpacity
                     style={[styles.listenerCallBtn, listener.status === 'busy' && { backgroundColor: '#F59E0B' }]}
                     onPress={() => onCallPress(listener, 'audio')}
-                    activeOpacity={0.85}
+                    activeOpacity={0.8}
                   >
                     <Phone size={12} color={THEME.colors.white} />
                     <Text style={styles.listenerCallBtnText}>{listener.status === 'busy' ? 'Queue' : 'Call ₹9'}</Text>
@@ -301,7 +305,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                         listener.status === 'busy' && { borderColor: '#F59E0B', backgroundColor: '#FEF3C7' },
                       ]}
                       onPress={() => onCallPress(listener, 'video')}
-                      activeOpacity={0.85}
+                      activeOpacity={0.8}
                     >
                       <Video size={12} color={listener.status === 'busy' ? '#D97706' : '#2563EB'} />
                       <Text
@@ -315,7 +319,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                     </TouchableOpacity>
                   )}
                 </View>
-              </TouchableOpacity>
+              </View>
             </View>
           ))}
         </View>

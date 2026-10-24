@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
 import { Home, Phone, MessageSquare, Wallet } from 'lucide-react-native';
 import { THEME } from '../theme';
 
@@ -92,20 +92,21 @@ export const BottomNavBar: React.FC<BottomNavBarProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    height: 62,
+    height: 64,
     backgroundColor: THEME.colors.white,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-around',
     borderTopWidth: 1,
     borderTopColor: THEME.colors.border,
-    paddingBottom: 4,
+    paddingBottom: Platform.OS === 'web' ? 6 : 4,
   },
   tabButton: {
     alignItems: 'center',
     justifyContent: 'center',
     flex: 1,
-    paddingVertical: 6,
+    paddingVertical: 8,
+    minHeight: 48,
   },
   iconWrapper: {
     position: 'relative',

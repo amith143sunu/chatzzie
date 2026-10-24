@@ -81,29 +81,32 @@ export const CallsScreen: React.FC<CallsScreenProps> = ({
           />
         </View>
 
-        {/* Language Filter Pill */}
-        <TouchableOpacity
-          style={[styles.filterPill, selectedLanguage !== 'All' && styles.filterPillActive]}
-          onPress={() => setShowLangPicker(!showLangPicker)}
-          activeOpacity={0.8}
-        >
-          <Text style={[styles.filterPillText, selectedLanguage !== 'All' && styles.filterPillTextActive]}>
-            {selectedLanguage === 'All' ? 'All Languages' : selectedLanguage}
-          </Text>
-          <ChevronDown size={14} color={selectedLanguage !== 'All' ? THEME.colors.primary : THEME.colors.textSecondary} />
-        </TouchableOpacity>
+        {/* Filter Pills Row */}
+        <View style={styles.filterPillsRow}>
+          {/* Language Filter Pill */}
+          <TouchableOpacity
+            style={[styles.filterPill, selectedLanguage !== 'All' && styles.filterPillActive]}
+            onPress={() => setShowLangPicker(!showLangPicker)}
+            activeOpacity={0.8}
+          >
+            <Text style={[styles.filterPillText, selectedLanguage !== 'All' && styles.filterPillTextActive]}>
+              {selectedLanguage === 'All' ? 'All Languages' : selectedLanguage}
+            </Text>
+            <ChevronDown size={14} color={selectedLanguage !== 'All' ? THEME.colors.primary : THEME.colors.textSecondary} />
+          </TouchableOpacity>
 
-        {/* Video Call Filter Toggle Pill */}
-        <TouchableOpacity
-          style={[styles.filterPill, videoOnly && styles.filterPillActive]}
-          onPress={() => setVideoOnly(!videoOnly)}
-          activeOpacity={0.8}
-        >
-          <Video size={14} color={videoOnly ? THEME.colors.primary : THEME.colors.textSecondary} />
-          <Text style={[styles.filterPillText, videoOnly && styles.filterPillTextActive]}>
-            Video Call
-          </Text>
-        </TouchableOpacity>
+          {/* Video Call Filter Toggle Pill */}
+          <TouchableOpacity
+            style={[styles.filterPill, videoOnly && styles.filterPillActive]}
+            onPress={() => setVideoOnly(!videoOnly)}
+            activeOpacity={0.8}
+          >
+            <Video size={14} color={videoOnly ? THEME.colors.primary : THEME.colors.textSecondary} />
+            <Text style={[styles.filterPillText, videoOnly && styles.filterPillTextActive]}>
+              Video Call
+            </Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Language Picker Dropdown Sheet (if open) */}
@@ -167,8 +170,6 @@ const styles = StyleSheet.create({
     backgroundColor: THEME.colors.background,
   },
   filterBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 12,
     backgroundColor: THEME.colors.white,
@@ -176,8 +177,13 @@ const styles = StyleSheet.create({
     borderBottomColor: THEME.colors.border,
     gap: 10,
   },
+  filterPillsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
   searchBox: {
-    flex: 1,
+    width: '100%',
     height: 40,
     backgroundColor: THEME.colors.inputBg,
     borderRadius: 20,

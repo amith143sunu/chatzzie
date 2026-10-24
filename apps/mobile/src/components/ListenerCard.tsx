@@ -23,13 +23,13 @@ export const ListenerCard: React.FC<ListenerCardProps> = ({
   };
 
   return (
-    <TouchableOpacity
-      style={styles.card}
-      onPress={onCardPress}
-      activeOpacity={0.9}
-    >
-      {/* Top Profile Section */}
-      <View style={styles.profileRow}>
+    <View style={styles.card}>
+      {/* Top Profile Section - Clickable to Open Profile Details */}
+      <TouchableOpacity
+        style={styles.profileRow}
+        onPress={onCardPress}
+        activeOpacity={0.85}
+      >
         {/* Avatar with Online Ring */}
         <View style={styles.avatarContainer}>
           <Image source={{ uri: listener.avatarUrl }} style={styles.avatar} />
@@ -86,9 +86,9 @@ export const ListenerCard: React.FC<ListenerCardProps> = ({
             <Text style={styles.rateText}> • ₹9/min Voice{listener.isVideoEnabled ? ' • ₹30/min Video' : ''}</Text>
           </View>
         </View>
-      </View>
+      </TouchableOpacity>
 
-      {/* Action Buttons Row */}
+      {/* Action Buttons Row - Independent Direct Click Targets */}
       <View style={styles.actionsRow}>
         {listener.isVideoEnabled ? (
           <>
@@ -123,7 +123,7 @@ export const ListenerCard: React.FC<ListenerCardProps> = ({
           </TouchableOpacity>
         )}
       </View>
-    </TouchableOpacity>
+    </View>
   );
 };
 

@@ -406,7 +406,8 @@ const styles = StyleSheet.create({
   authCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 24,
-    padding: 28,
+    paddingVertical: 24,
+    paddingHorizontal: 20,
     width: '100%',
     maxWidth: 460,
     shadowColor: '#000',
