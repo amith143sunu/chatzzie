@@ -88,32 +88,26 @@ class ErrorBoundary extends React.Component<
 
 export default function App() {
   const { width } = useWindowDimensions();
-  const [viewMode, setViewMode] = useState<ViewMode>(() => {
-    if (typeof window !== 'undefined' && window.localStorage) {
-      const saved = window.localStorage.getItem('chatzie_view_mode');
-      if (saved === 'mobile' || saved === 'desktop') return saved as ViewMode;
-    }
-    return 'desktop';
-  });
-  const isLargeScreen = Platform.OS === 'web' && width > 640;
-  const isDesktop = viewMode === 'desktop' && isLargeScreen;
+  const isDesktop = Platform.OS === 'web' && width > 768;
 
   const [activeTab, setActiveTab] = useState<NavTab>('home');
   const [currentScreen, setCurrentScreen] = useState<ScreenView>('tab_home');
 
-  // Real-time App State (Welcome balance ₹60.00 for instant live testing)
+  // Real-time App State
   const [walletBalanceINR, setWalletBalanceINR] = useState<number>(60.00);
   const [listeners, setListeners] = useState<ListenerProfile[]>(mockListeners);
   const [transactions, setTransactions] = useState<WalletTransaction[]>(mockTransactions);
-  const [userName, setUserName] = useState('Amit');
+  const [userName, setUserName] = useState('');
   const [userRole, setUserRole] = useState<'talker' | 'listener'>('talker');
-  const [userUsername, setUserUsername] = useState<string>('amit_caller');
-  const [userId, setUserId] = useState<string>('u_amit');
+  const [userUsername, setUserUsername] = useState<string>('');
+  const [userId, setUserId] = useState<string>('');
   const [userAvatar, setUserAvatar] = useState('https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=200&q=80');
+
+  // STRICT AUTHENTICATION: Only authenticated if a valid active session exists
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
     if (typeof window !== 'undefined' && window.localStorage) {
-      const saved = window.localStorage.getItem('chatzie_user_profile') || window.localStorage.getItem('chatzie_current_user');
-      return !!saved;
+      const session = window.localStorage.getItem('chatzie_auth_session');
+      return !!session;
     }
     return false;
   });
@@ -122,20 +116,25 @@ export default function App() {
   useEffect(() => {
     try {
       if (typeof window !== 'undefined' && window.localStorage) {
-        const saved = window.localStorage.getItem('chatzie_user_profile') || window.localStorage.getItem('chatzie_current_user');
-        if (saved) {
-          const parsed = JSON.parse(saved);
-          if (parsed.name) setUserName(parsed.name);
-          if (parsed.username) setUserUsername(parsed.username);
-          if (parsed.role) setUserRole(parsed.role);
-          if (parsed.id) setUserId(parsed.id);
-          if (parsed.avatarUrl) setUserAvatar(parsed.avatarUrl);
-          if (typeof parsed.walletBalanceINR === 'number') setWalletBalanceINR(parsed.walletBalanceINR);
-          if (parsed.role === 'listener') setIsListenerVerified(true);
-          setIsAuthenticated(true);
-        } else {
-          setIsAuthenticated(false);
+        const session = window.localStorage.getItem('chatzie_auth_session');
+        if (session) {
+          const parsed = JSON.parse(session);
+          if (parsed && parsed.name) {
+            setUserName(parsed.name);
+            if (parsed.username) setUserUsername(parsed.username);
+            if (parsed.role) setUserRole(parsed.role);
+            if (parsed.id) setUserId(parsed.id);
+            if (parsed.avatarUrl) setUserAvatar(parsed.avatarUrl);
+            if (typeof parsed.walletBalanceINR === 'number') setWalletBalanceINR(parsed.walletBalanceINR);
+            if (parsed.role === 'listener') setIsListenerVerified(true);
+            setIsAuthenticated(true);
+            return;
+          }
         }
+        // Purge legacy test sessions to enforce Login Screen
+        window.localStorage.removeItem('chatzie_user_profile');
+        window.localStorage.removeItem('chatzie_current_user');
+        setIsAuthenticated(false);
       }
     } catch (e) {}
   }, []);
@@ -148,6 +147,9 @@ export default function App() {
     if (u.avatarUrl) setUserAvatar(u.avatarUrl);
     if (typeof u.walletBalanceINR === 'number') {
       setWalletBalanceINR(u.walletBalanceINR);
+    }
+    if (typeof window !== 'undefined' && window.localStorage) {
+      window.localStorage.setItem('chatzie_auth_session', JSON.stringify(u));
     }
     setIsAuthenticated(true);
 
@@ -164,12 +166,14 @@ export default function App() {
 
   const handleLogout = () => {
     if (typeof window !== 'undefined' && window.localStorage) {
+      window.localStorage.removeItem('chatzie_auth_session');
       window.localStorage.removeItem('chatzie_user_profile');
       window.localStorage.removeItem('chatzie_current_user');
     }
     setUserRole('talker');
     setUserName('');
     setUserUsername('');
+    setUserId('');
     setIsAuthenticated(false);
     setCurrentScreen('tab_home');
   };
@@ -530,8 +534,7 @@ export default function App() {
 
   return (
     <ErrorBoundary>
-      <DeviceFrame viewMode={viewMode} onToggleViewMode={setViewMode}>
-        <SafeAreaView style={styles.safeArea}>
+      <SafeAreaView style={styles.safeArea}>
         <StatusBar barStyle="dark-content" backgroundColor={THEME.colors.white} />
 
         {/* Professional Desktop Header (Only rendered in Desktop Web mode) */}
@@ -544,8 +547,6 @@ export default function App() {
             onAvatarPress={() => setCurrentScreen('account')}
             onBecomeListenerPress={() => setShowOnboardingModal(true)}
             onEarningsPress={() => setShowEarningsModal(true)}
-            viewMode={viewMode}
-            onToggleViewMode={setViewMode}
             userName={userName}
             userRole={userRole}
           />
@@ -558,6 +559,7 @@ export default function App() {
             balanceINR={walletBalanceINR}
             listeners={listeners}
             isDesktop={isDesktop}
+            userName={userName}
             onBalancePress={() => handleTabChange('wallet')}
             onAvatarPress={() => setCurrentScreen('account')}
             onCategoryPress={() => handleTabChange('calls')}
@@ -783,7 +785,6 @@ export default function App() {
         />
       </View>
     </SafeAreaView>
-    </DeviceFrame>
     </ErrorBoundary>
   );
 }

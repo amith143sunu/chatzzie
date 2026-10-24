@@ -25,8 +25,8 @@ interface DesktopHeaderProps {
   onAvatarPress: () => void;
   onBecomeListenerPress: () => void;
   onEarningsPress?: () => void;
-  viewMode: 'desktop' | 'mobile';
-  onToggleViewMode: (mode: 'desktop' | 'mobile') => void;
+  viewMode?: 'desktop' | 'mobile';
+  onToggleViewMode?: (mode: 'desktop' | 'mobile') => void;
   unreadChatCount?: number;
   userName?: string;
   userRole?: 'talker' | 'listener';

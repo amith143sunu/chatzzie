@@ -98,6 +98,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
       const data = await res.json();
       if (data.success && data.user) {
         if (typeof window !== 'undefined' && window.localStorage) {
+          window.localStorage.setItem('chatzie_auth_session', JSON.stringify(data.user));
           window.localStorage.setItem('chatzie_user_profile', JSON.stringify(data.user));
           window.localStorage.setItem('chatzie_current_user', JSON.stringify(data.user));
         }
@@ -113,6 +114,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
           avatarUrl: `https://images.unsplash.com/photo-${role === 'listener' ? '1544005313-94ddf0286df2' : '1535713875002-d1d0cf377fde'}?auto=format&fit=crop&w=300&q=80`,
         };
         if (typeof window !== 'undefined' && window.localStorage) {
+          window.localStorage.setItem('chatzie_auth_session', JSON.stringify(localUser));
           window.localStorage.setItem('chatzie_user_profile', JSON.stringify(localUser));
           window.localStorage.setItem('chatzie_current_user', JSON.stringify(localUser));
         }
@@ -129,6 +131,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
         avatarUrl: `https://images.unsplash.com/photo-${role === 'listener' ? '1544005313-94ddf0286df2' : '1535713875002-d1d0cf377fde'}?auto=format&fit=crop&w=300&q=80`,
       };
       if (typeof window !== 'undefined' && window.localStorage) {
+        window.localStorage.setItem('chatzie_auth_session', JSON.stringify(localUser));
         window.localStorage.setItem('chatzie_user_profile', JSON.stringify(localUser));
         window.localStorage.setItem('chatzie_current_user', JSON.stringify(localUser));
       }

@@ -31,6 +31,7 @@ interface HomeScreenProps {
   balanceINR: number;
   listeners: ListenerProfile[];
   isDesktop?: boolean;
+  userName?: string;
   onBalancePress: () => void;
   onAvatarPress: () => void;
   onCategoryPress: (category: string) => void;
@@ -43,6 +44,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   balanceINR,
   listeners,
   isDesktop = false,
+  userName = 'User',
   onBalancePress,
   onAvatarPress,
   onCategoryPress,
@@ -55,7 +57,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
       {/* Mobile Header Bar (Only visible when NOT on Desktop) */}
       {!isDesktop && (
         <HeaderBar
-          userName="Amit"
+          userName={userName}
           balanceINR={balanceINR}
           onBalancePress={onBalancePress}
           onAvatarPress={onAvatarPress}
