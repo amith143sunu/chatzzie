@@ -33,7 +33,7 @@ import { THEME } from '../theme';
 import { getApiBaseUrl } from '../services/apiConfig';
 
 interface ActiveCallScreenProps {
-  listener: ListenerProfile;
+  listener?: ListenerProfile | null;
   callType: 'audio' | 'video';
   userBalanceINR: number;
   isHost?: boolean;
@@ -53,8 +53,9 @@ export const ActiveCallScreen: React.FC<ActiveCallScreenProps> = ({
   onEndCall,
   onBalanceDepleted,
 }) => {
-  const channelName = channelNameOverride || `call_${listener.username}`;
-  const partnerDisplayName = partnerNameOverride || listener.name;
+  const channelName = channelNameOverride || (listener ? `call_${listener.username}` : 'call_channel');
+  const partnerDisplayName = partnerNameOverride || (listener ? listener.name : 'Partner');
+  const partnerAvatarUrl = (listener && listener.avatarUrl) ? listener.avatarUrl : 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=300&q=80';
 
   const [secondsElapsed, setSecondsElapsed] = useState(0);
   const [isMuted, setIsMuted] = useState(false);
@@ -63,6 +64,7 @@ export const ActiveCallScreen: React.FC<ActiveCallScreenProps> = ({
   const [showReportModal, setShowReportModal] = useState(false);
   const [selectedReportReason, setSelectedReportReason] = useState<string>('Harassment or Abusive Conduct');
   const [remainingBalance, setRemainingBalance] = useState(userBalanceINR);
+  const [aiWarningModal, setAiWarningModal] = useState<{ visible: boolean; phrase: string } | null>(null);
 
   // Agora Live RTC State
   const [agoraStatus, setAgoraStatus] = useState<string>('Connecting to Agora...');
@@ -411,6 +413,86 @@ export const ActiveCallScreen: React.FC<ActiveCallScreenProps> = ({
     return () => clearInterval(timer);
   }, [effectiveRatePerMinINR, isHost, onBalanceDepleted]);
 
+  // Independent 600ms Real-Time Disconnect Poller (Ensures instant auto-disconnect when partner hangs up)
+  useEffect(() => {
+    let isMounted = true;
+    const baseUrl = getApiBaseUrl();
+
+    const checkCallStatus = async () => {
+      try {
+        const res = await fetch(`${baseUrl}/api/calls/status?channel=${encodeURIComponent(channelName)}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.ended && isMounted) {
+            setAgoraStatus('Call ended by partner');
+            setTimeout(() => {
+              if (isMounted) handleEnd();
+            }, 300);
+          }
+        }
+      } catch (e) {}
+    };
+
+    const statusTimer = setInterval(checkCallStatus, 600);
+    return () => {
+      isMounted = false;
+      clearInterval(statusTimer);
+    };
+  }, [channelName]);
+
+  // AI SafeTalk Real-Time Speech Monitor (Detects numbers / social handles during call)
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) return;
+
+    let recognition: any = null;
+    let isStopped = false;
+
+    try {
+      recognition = new SpeechRecognition();
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.lang = 'en-IN';
+
+      recognition.onresult = (event: any) => {
+        let transcript = '';
+        for (let i = event.resultIndex; i < event.results.length; ++i) {
+          transcript += event.results[i][0].transcript;
+        }
+        const lower = transcript.toLowerCase();
+
+        // Detect exchange of numbers or contact details
+        const digitMatch = /\d{2,}/.test(lower);
+        const numberWords = /\b(zero|one|two|three|four|five|six|seven|eight|nine|ek|do|teen|char|paanch|chhe|saat|aath|nau|das)\b/i.test(lower);
+        const contactKeywords = /\b(my number|phone number|call me|whatsapp|insta|instagram|snapchat|telegram|paytm|gpay|google pay|email me)\b/i.test(lower);
+
+        if (digitMatch || (numberWords && contactKeywords) || contactKeywords) {
+          setAiWarningModal({
+            visible: true,
+            phrase: transcript.slice(-40),
+          });
+        }
+      };
+
+      recognition.onerror = () => {};
+      recognition.onend = () => {
+        if (!isStopped) {
+          try { recognition.start(); } catch (e) {}
+        }
+      };
+
+      recognition.start();
+    } catch (e) {}
+
+    return () => {
+      isStopped = true;
+      if (recognition) {
+        try { recognition.stop(); } catch (e) {}
+      }
+    };
+  }, []);
+
   const formatTime = (secs: number) => {
     const m = Math.floor(secs / 60);
     const s = secs % 60;
@@ -430,7 +512,7 @@ export const ActiveCallScreen: React.FC<ActiveCallScreenProps> = ({
           durationSeconds: secondsElapsed,
           totalCost,
           callerId: isHost ? undefined : 'u_caller',
-          listenerId: listener.id,
+          listenerId: listener?.id || 'host_partner',
           callType,
         }),
       }).catch(() => {});
@@ -507,7 +589,7 @@ export const ActiveCallScreen: React.FC<ActiveCallScreenProps> = ({
           {/* Sibling Overlay: Shown only while waiting for partner video to arrive */}
           {!hasRemoteVideo && (
             <View style={styles.videoWaitingOverlay}>
-              <Image source={{ uri: listener.avatarUrl }} style={styles.listenerAvatarVideo} />
+              <Image source={{ uri: partnerAvatarUrl }} style={styles.listenerAvatarVideo} />
               <Text style={styles.videoWaitingName}>{partnerDisplayName}</Text>
               <Text style={styles.videoWaitingSub}>
                 {hasRemoteUser ? 'Partner in room • Starting video stream...' : 'Waiting for partner to connect...'}
@@ -597,12 +679,12 @@ export const ActiveCallScreen: React.FC<ActiveCallScreenProps> = ({
         <View style={styles.callingStage}>
           {/* Pulsing Avatar Area */}
           <View style={styles.avatarGlow}>
-            <Image source={{ uri: listener.avatarUrl }} style={styles.listenerAvatar} />
+            <Image source={{ uri: partnerAvatarUrl }} style={styles.listenerAvatar} />
           </View>
 
           <Text style={styles.listenerName}>{partnerDisplayName}</Text>
           <Text style={styles.listenerHandle}>
-            {isHost ? 'Connected with Caller' : `@${listener.username}`}
+            {isHost ? 'Connected with Caller' : (listener ? `@${listener.username}` : '@host')}
           </Text>
 
           {/* Live Timer */}
@@ -883,6 +965,36 @@ export const ActiveCallScreen: React.FC<ActiveCallScreenProps> = ({
           </View>
         </View>
       </Modal>
+
+      {/* AI SafeTalk Prohibited Contact Exchange Warning Modal */}
+      {aiWarningModal && (
+        <Modal visible={aiWarningModal.visible} transparent animationType="fade">
+          <View style={styles.aiWarningOverlay}>
+            <View style={styles.aiWarningCard}>
+              <View style={styles.aiWarningIconCircle}>
+                <ShieldAlert size={36} color="#DC2626" />
+              </View>
+              <Text style={styles.aiWarningTitle}>⚠️ AI Safety Alert: Prohibited Info Detected</Text>
+              <Text style={styles.aiWarningSub}>
+                SafeTalk AI detected exchange of phone number, contact info, or external handle:
+              </Text>
+              <View style={styles.aiWarningQuoteBox}>
+                <Text style={styles.aiWarningQuoteText}>"{aiWarningModal.phrase}"</Text>
+              </View>
+              <Text style={styles.aiWarningDisclaimer}>
+                Chatzie strictly prohibits exchanging personal contacts, social media handles, or offline payment IDs. Continued attempts will result in immediate call termination and permanent account ban.
+              </Text>
+              <TouchableOpacity
+                style={styles.aiWarningDismissBtn}
+                onPress={() => setAiWarningModal(null)}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.aiWarningDismissText}>I Understand • Continue Call Safely</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
+      )}
     </View>
   );
 };
@@ -1510,5 +1622,83 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#A7F3D0',
     letterSpacing: 0.2,
+  },
+  aiWarningOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.85)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  aiWarningCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    padding: 24,
+    width: '100%',
+    maxWidth: 420,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.25,
+    shadowRadius: 20,
+    elevation: 10,
+  },
+  aiWarningIconCircle: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: '#FEE2E2',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  aiWarningTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#991B1B',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  aiWarningSub: {
+    fontSize: 13,
+    color: '#475569',
+    textAlign: 'center',
+    marginBottom: 10,
+  },
+  aiWarningQuoteBox: {
+    backgroundColor: '#FEF2F2',
+    borderWidth: 1,
+    borderColor: '#FECACA',
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    marginBottom: 14,
+    width: '100%',
+  },
+  aiWarningQuoteText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#DC2626',
+    textAlign: 'center',
+    fontStyle: 'italic',
+  },
+  aiWarningDisclaimer: {
+    fontSize: 12,
+    color: '#64748B',
+    textAlign: 'center',
+    lineHeight: 18,
+    marginBottom: 20,
+  },
+  aiWarningDismissBtn: {
+    backgroundColor: '#DC2626',
+    width: '100%',
+    paddingVertical: 14,
+    borderRadius: 14,
+    alignItems: 'center',
+  },
+  aiWarningDismissText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '800',
   },
 });

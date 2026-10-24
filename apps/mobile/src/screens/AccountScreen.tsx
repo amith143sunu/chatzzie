@@ -10,6 +10,7 @@ import {
 import {
   ArrowLeft,
   Shield,
+  ShieldCheck,
   FileText,
   RotateCcw,
   CreditCard,
@@ -32,6 +33,7 @@ interface AccountScreenProps {
   onHelpPress: () => void;
   onBecomeListenerPress: () => void;
   onEarningsPress?: () => void;
+  onAdminPress?: () => void;
   isListenerVerified?: boolean;
   userName?: string;
   userRole?: 'talker' | 'listener';
@@ -44,6 +46,7 @@ export const AccountScreen: React.FC<AccountScreenProps> = ({
   onHelpPress,
   onBecomeListenerPress,
   onEarningsPress,
+  onAdminPress,
   isListenerVerified = false,
   userName = 'Amit',
   userRole = 'talker',
@@ -121,6 +124,7 @@ export const AccountScreen: React.FC<AccountScreenProps> = ({
         {/* Menu Options Card */}
         <View style={styles.menuCard}>
           {[
+            { label: 'Admin Backoffice Console (/admin)', icon: ShieldCheck, color: '#2563EB', action: onAdminPress },
             { label: 'Transactions', icon: CreditCard, action: onTransactionsPress },
             { label: 'Call History', icon: Clock },
             { label: 'Privacy Policy', icon: Shield },

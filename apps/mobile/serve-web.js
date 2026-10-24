@@ -24,6 +24,40 @@ const MIME_TYPES = {
 
 const server = http.createServer((req, res) => {
   let reqPath = req.url.split('?')[0];
+
+  // 1. Proxy to Next.js Admin console if running on port 8681
+  if (reqPath.startsWith('/admin') || reqPath.startsWith('/_next')) {
+    const proxyReq = http.request({
+      host: '127.0.0.1',
+      port: 8681,
+      path: req.url,
+      method: req.method,
+      headers: req.headers,
+    }, (proxyRes) => {
+      res.writeHead(proxyRes.statusCode, proxyRes.headers);
+      proxyRes.pipe(res);
+    });
+
+    proxyReq.on('error', () => {
+      // If 8681 is not running, fall back to SPA index.html so React Native AdminScreen renders
+      fs.readFile(path.join(DIST_DIR, 'index.html'), (err, content) => {
+        if (err) {
+          res.writeHead(500, { 'Content-Type': 'text/plain' });
+          res.end('Server Error');
+          return;
+        }
+        res.writeHead(200, {
+          'Content-Type': 'text/html; charset=utf-8',
+          'Cache-Control': 'no-cache',
+        });
+        res.end(content);
+      });
+    });
+
+    req.pipe(proxyReq);
+    return;
+  }
+
   if (reqPath === '/' || reqPath === '') reqPath = '/index.html';
 
   let filePath = path.join(DIST_DIR, reqPath);

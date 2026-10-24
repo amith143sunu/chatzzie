@@ -860,13 +860,13 @@ app.get('/api/chat/caller-conversations', (req, res) => {
     const msgs = chatDatabase[k];
     if (msgs && msgs.length > 0) {
       const lastMsg = msgs[msgs.length - 1];
-      const hostUsernameOrId = lastMsg.senderRole === 'host' ? lastMsg.senderId : lastMsg.recipientUsername;
+      const hostUsernameOrId = (lastMsg.senderRole === 'host' ? (lastMsg.senderId || lastMsg.senderName) : (lastMsg.recipientUsername || lastMsg.recipientId)) || 'host';
       const matchedHost = mockListeners.find(l => 
-        l.username.toLowerCase() === hostUsernameOrId.toLowerCase() ||
-        l.name.toLowerCase() === hostUsernameOrId.toLowerCase()
+        (l.username && hostUsernameOrId && l.username.toLowerCase() === hostUsernameOrId.toLowerCase()) ||
+        (l.name && hostUsernameOrId && l.name.toLowerCase() === hostUsernameOrId.toLowerCase())
       ) || {
         id: `list_${hostUsernameOrId}`,
-        name: lastMsg.senderRole === 'host' ? lastMsg.senderName : lastMsg.recipientUsername,
+        name: lastMsg.senderRole === 'host' ? (lastMsg.senderName || 'Host') : (lastMsg.recipientUsername || 'Host'),
         username: hostUsernameOrId,
         avatarUrl: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=300&q=80',
         callRatePerMinINR: 9,

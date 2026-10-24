@@ -22,6 +22,7 @@ import { ListenerOnboardingModal } from './src/screens/ListenerOnboardingModal';
 import { ListenerEarningsModal } from './src/screens/ListenerEarningsModal';
 import { LoginScreen } from './src/screens/LoginScreen';
 import { HostLiveScreen } from './src/screens/HostLiveScreen';
+import { AdminScreen } from './src/screens/AdminScreen';
 import { DeviceFrame, ViewMode } from './src/components/DeviceFrame';
 import { InsufficientBalanceModal } from './src/components/InsufficientBalanceModal';
 import { HostBusyModal } from './src/components/HostBusyModal';
@@ -45,7 +46,8 @@ type ScreenView =
   | 'coupons'
   | 'active_call'
   | 'account'
-  | 'help';
+  | 'help'
+  | 'admin';
 
 class ErrorBoundary extends React.Component<
   { children: React.ReactNode },
@@ -339,17 +341,28 @@ export default function App() {
     return () => clearInterval(timer);
   }, [isAuthenticated, userId, userRole]);
 
-  // Handle URL auto-call parameter for instant 2-way Agora testing (audio or video)
+  // Handle URL /admin parameter or auto-call parameter for instant routing
   useEffect(() => {
-    if (typeof window !== 'undefined' && window.location && window.location.search) {
-      const params = new URLSearchParams(window.location.search);
-      const autocallHandle = params.get('autocall');
-      const autocallType = params.get('type') === 'video' ? 'video' : 'audio';
-      if (autocallHandle) {
-        const found = mockListeners.find(l => l.username === autocallHandle) || mockListeners[0];
-        setSelectedListener(found);
-        setActiveCallType(autocallType);
-        setCurrentScreen('active_call');
+    if (typeof window !== 'undefined' && window.location) {
+      const pathname = window.location.pathname || '';
+      const search = window.location.search || '';
+      const hash = window.location.hash || '';
+
+      if (pathname.startsWith('/admin') || search.includes('role=admin') || hash.includes('admin')) {
+        setCurrentScreen('admin');
+        return;
+      }
+
+      if (search) {
+        const params = new URLSearchParams(search);
+        const autocallHandle = params.get('autocall');
+        const autocallType = params.get('type') === 'video' ? 'video' : 'audio';
+        if (autocallHandle) {
+          const found = mockListeners.find(l => l.username === autocallHandle) || mockListeners[0];
+          setSelectedListener(found);
+          setActiveCallType(autocallType);
+          setCurrentScreen('active_call');
+        }
       }
     }
   }, []);
@@ -385,30 +398,9 @@ export default function App() {
     setActiveCallChannel(channel);
     setActivePartnerName(listener.name);
 
-    // Send ring signal to backend for host
+    // Send single ring signal to backend for host
     try {
       const baseUrl = getApiBaseUrl();
-      fetch(`${baseUrl}/api/calls/dial`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          callerName: userName || 'Caller',
-          callerId: userId,
-          listenerUsername: listener.username,
-          callType: type,
-          ratePerMin: type === 'video' ? 30 : 9,
-        }),
-      })
-        .then(r => r.json())
-        .then(data => {
-          if (data && data.isBusy) {
-            setBusyHostModal({ visible: true, host: listener });
-            setCurrentScreen('tab_home');
-          }
-        })
-        .catch(() => {});
-
-      // Dial host via backend signaling (sets status = ringing)
       fetch(`${baseUrl}/api/calls/dial`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -620,7 +612,16 @@ export default function App() {
       <ErrorBoundary>
         <SafeAreaView style={styles.safeArea}>
           <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
-          {currentScreen === 'active_call' ? (
+          {currentScreen === 'admin' ? (
+            <AdminScreen
+              onBackToApp={() => {
+                if (typeof window !== 'undefined' && window.history && window.history.pushState) {
+                  window.history.pushState({}, '', '/');
+                }
+                setCurrentScreen('host_live');
+              }}
+            />
+          ) : currentScreen === 'active_call' ? (
             <ActiveCallScreen
               listener={selectedListener}
               callType={activeCallType}
@@ -732,16 +733,16 @@ export default function App() {
         {/* Internal Sub-Pages */}
         {currentScreen === 'chat_detail' && (
           <ChatDetailScreen
-            partnerName={selectedListener.name}
-            partnerUsername={selectedListener.username}
-            partnerAvatar={selectedListener.avatarUrl}
-            partnerRate={selectedListener.callRatePerMinINR}
+            partnerName={selectedListener?.name || 'Verified Host'}
+            partnerUsername={selectedListener?.username || 'host'}
+            partnerAvatar={selectedListener?.avatarUrl || 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=300&q=80'}
+            partnerRate={selectedListener?.callRatePerMinINR || 9}
             userBalanceINR={walletBalanceINR}
             userName={userName || 'Caller'}
             userId={userId || 'u_caller'}
             onBackPress={() => setCurrentScreen('tab_chat')}
-            onAudioCallPress={() => handleStartCall(selectedListener, 'audio')}
-            onVideoCallPress={() => handleStartCall(selectedListener, 'video')}
+            onAudioCallPress={() => handleStartCall(selectedListener || listeners[0], 'audio')}
+            onVideoCallPress={() => handleStartCall(selectedListener || listeners[0], 'video')}
             onDeductChatCost={handleDeductChatCost}
             onRechargePress={() => handleTabChange('wallet')}
           />
@@ -807,12 +808,24 @@ export default function App() {
             onHelpPress={() => setCurrentScreen('help')}
             onBecomeListenerPress={() => setShowOnboardingModal(true)}
             onEarningsPress={() => setShowEarningsModal(true)}
+            onAdminPress={() => setCurrentScreen('admin')}
             onLogout={handleLogout}
           />
         )}
 
         {currentScreen === 'help' && (
           <HelpScreen onBackPress={() => setCurrentScreen('account')} />
+        )}
+
+        {currentScreen === 'admin' && (
+          <AdminScreen
+            onBackToApp={() => {
+              if (typeof window !== 'undefined' && window.history && window.history.pushState) {
+                window.history.pushState({}, '', '/');
+              }
+              setCurrentScreen('tab_home');
+            }}
+          />
         )}
 
         {currentScreen === 'active_call' && (

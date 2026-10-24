@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -93,6 +93,7 @@ export const ChatDetailScreen: React.FC<ChatDetailScreenProps> = ({
 }) => {
   const [inputText, setInputText] = useState('');
   const [showPhotoPicker, setShowPhotoPicker] = useState(false);
+  const scrollViewRef = useRef<ScrollView>(null);
   const [policyViolationModal, setPolicyViolationModal] = useState<{ visible: boolean; reason: string }>({
     visible: false,
     reason: '',
@@ -150,6 +151,15 @@ export const ChatDetailScreen: React.FC<ChatDetailScreenProps> = ({
       clearInterval(timer);
     };
   }, [partnerName, partnerUsername, userName, userId]);
+
+  // Auto-scroll to latest message
+  useEffect(() => {
+    if (scrollViewRef.current) {
+      setTimeout(() => {
+        scrollViewRef.current?.scrollToEnd({ animated: true });
+      }, 100);
+    }
+  }, [messages.length]);
 
   const quickIcebreakers = [
     'How do you unwind after a busy day?',
@@ -344,6 +354,8 @@ export const ChatDetailScreen: React.FC<ChatDetailScreenProps> = ({
 
       {/* Messages Scroll Area */}
       <ScrollView
+        ref={scrollViewRef}
+        onContentSizeChange={() => scrollViewRef.current?.scrollToEnd({ animated: true })}
         style={styles.messagesContainer}
         contentContainerStyle={styles.messagesContent}
         showsVerticalScrollIndicator={false}
