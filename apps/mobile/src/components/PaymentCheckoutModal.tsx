@@ -33,6 +33,8 @@ interface PaymentCheckoutModalProps {
   packageDetails: RechargePackage | null;
   onClose: () => void;
   onPaymentSuccess: (amountINR: number, cashbackINR: number, paymentId: string) => void;
+  userId?: string;
+  userName?: string;
 }
 
 type PaymentMethodType = 'upi_app' | 'upi_qr' | 'card' | 'netbanking';
@@ -42,6 +44,8 @@ export const PaymentCheckoutModal: React.FC<PaymentCheckoutModalProps> = ({
   packageDetails,
   onClose,
   onPaymentSuccess,
+  userId = 'u-amit',
+  userName = 'Amit Kumar',
 }) => {
   const [method, setMethod] = useState<PaymentMethodType>('upi_app');
   const [selectedUpiApp, setSelectedUpiApp] = useState<'gpay' | 'phonepe' | 'paytm' | 'other'>('gpay');
@@ -51,7 +55,7 @@ export const PaymentCheckoutModal: React.FC<PaymentCheckoutModalProps> = ({
   const [cardNumber, setCardNumber] = useState('4532 •••• •••• 8821');
   const [cardExpiry, setCardExpiry] = useState('08/28');
   const [cardCvv, setCardCvv] = useState('883');
-  const [cardName, setCardName] = useState('Amit Kumar');
+  const [cardName, setCardName] = useState(userName || 'Amit Kumar');
 
   // Netbanking
   const [selectedBank, setSelectedBank] = useState('HDFC Bank');
@@ -88,7 +92,7 @@ export const PaymentCheckoutModal: React.FC<PaymentCheckoutModalProps> = ({
           amountINR: amount,
           cashbackINR: cashback,
           packageId: packageDetails.id,
-          userId: 'u-amit',
+          userId: userId || 'u-amit',
         }),
       });
 
@@ -114,7 +118,7 @@ export const PaymentCheckoutModal: React.FC<PaymentCheckoutModalProps> = ({
           gatewaySignature: 'sim_sig_' + Math.random().toString(36).substring(2),
           amountINR: amount,
           cashbackINR: cashback,
-          userId: 'u-amit',
+          userId: userId || 'u-amit',
           paymentMethod: method === 'card' ? 'card' : method === 'netbanking' ? 'netbanking' : 'upi',
         }),
       });

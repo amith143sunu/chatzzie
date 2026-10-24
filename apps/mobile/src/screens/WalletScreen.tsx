@@ -28,6 +28,8 @@ interface WalletScreenProps {
   onHistoryPress?: () => void;
   onRechargeSuccess: (amount: number, cashback: number) => void;
   isDesktop?: boolean;
+  userId?: string;
+  userName?: string;
 }
 
 export const WalletScreen: React.FC<WalletScreenProps> = ({
@@ -36,6 +38,8 @@ export const WalletScreen: React.FC<WalletScreenProps> = ({
   onHistoryPress,
   onRechargeSuccess,
   isDesktop = false,
+  userId = 'u-amit',
+  userName = 'Amit Kumar',
 }) => {
   const [selectedPack, setSelectedPack] = useState<RechargePackage>(DEFAULT_RECHARGE_PACKAGES[5]); // default ₹2499
   const [couponApplied, setCouponApplied] = useState(true);
@@ -246,6 +250,8 @@ export const WalletScreen: React.FC<WalletScreenProps> = ({
       <PaymentCheckoutModal
         visible={isCheckoutModalVisible}
         packageDetails={selectedPack}
+        userId={userId}
+        userName={userName}
         onClose={() => setIsCheckoutModalVisible(false)}
         onPaymentSuccess={(amount, cashback) => {
           setIsCheckoutModalVisible(false);

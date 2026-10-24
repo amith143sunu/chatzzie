@@ -96,14 +96,29 @@ export const HostLiveScreen: React.FC<HostLiveScreenProps> = ({
     const pollIncomingCalls = async () => {
       try {
         const baseUrl = getApiBaseUrl();
-        const res = await fetch(`${baseUrl}/api/calls/check-incoming?username=${encodeURIComponent(hostUsername)}`);
-        if (!res.ok) return;
-        const data = await res.json();
+        const [res, listenersRes] = await Promise.all([
+          fetch(`${baseUrl}/api/calls/check-incoming?username=${encodeURIComponent(hostUsername)}`),
+          fetch(`${baseUrl}/api/listeners?search=${encodeURIComponent(hostUsername)}`),
+        ]);
 
-        if (data.hasIncoming && data.call && isMounted) {
-          if (!incomingCall || incomingCall.timestamp !== data.call.timestamp) {
-            setIncomingCall(data.call);
-            playRingtone();
+        if (res.ok) {
+          const data = await res.json();
+          if (data.hasIncoming && data.call && isMounted) {
+            if (!incomingCall || incomingCall.timestamp !== data.call.timestamp) {
+              setIncomingCall(data.call);
+              playRingtone();
+            }
+          }
+        }
+
+        if (listenersRes.ok) {
+          const listData = await listenersRes.json();
+          if (Array.isArray(listData) && listData.length > 0 && isMounted) {
+            const hostObj = listData.find((l: any) => l.username === hostUsername) || listData[0];
+            if (hostObj) {
+              setTotalEarningsINR(hostObj.totalEarnedINR || hostObj.earningsBalanceINR || 0);
+              if (hostObj.totalCalls) setCompletedCalls(hostObj.totalCalls);
+            }
           }
         }
       } catch (e) {}

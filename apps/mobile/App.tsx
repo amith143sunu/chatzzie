@@ -218,9 +218,9 @@ export default function App() {
         if (usersRes.ok) {
           const userData = await usersRes.json();
           if (userData.users) {
-            const amit = userData.users.find((u: any) => u.id === 'u-amit');
-            if (amit && typeof amit.walletBalanceINR === 'number') {
-              setWalletBalanceINR(amit.walletBalanceINR);
+            const currentU = userData.users.find((u: any) => u.id === userId) || userData.users.find((u: any) => u.name === userName);
+            if (currentU && typeof currentU.walletBalanceINR === 'number') {
+              setWalletBalanceINR(currentU.walletBalanceINR);
             }
           }
         }
@@ -230,7 +230,7 @@ export default function App() {
     syncWithBackend();
     const interval = setInterval(syncWithBackend, 4000);
     return () => clearInterval(interval);
-  }, []);
+  }, [userId, userName]);
 
   // Low balance prompt modal
   const [lowBalanceModal, setLowBalanceModal] = useState<{
@@ -309,6 +309,19 @@ export default function App() {
           ratePerMin: type === 'video' ? 30 : 9,
         }),
       }).catch(() => {});
+
+      // Register live session in admin monitor
+      fetch(`${baseUrl}/api/calls/start`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          channel: `call_${listener.username}`,
+          caller: `${userName || 'Caller'} (${userId})`,
+          listener: `${listener.name} (@${listener.username})`,
+          type,
+          ratePerMinINR: type === 'video' ? 30 : 9,
+        }),
+      }).catch(() => {});
     } catch (e) {}
 
     setSelectedListener(listener);
@@ -326,7 +339,7 @@ export default function App() {
 
     const newTx: WalletTransaction = {
       id: `tx-${Date.now()}`,
-      userId: 'u-amit',
+      userId: userId,
       type: 'call_deduction',
       amountINR: -amount,
       status: 'completed',
@@ -343,7 +356,7 @@ export default function App() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          callerId: 'u-amit',
+          callerId: userId,
           listenerId: selectedListener.id,
           type: amount >= 0.7 ? 'image' : 'text',
         }),
@@ -360,7 +373,7 @@ export default function App() {
 
     const newTx: WalletTransaction = {
       id: `tx_${Date.now()}`,
-      userId: 'u-amit',
+      userId: userId,
       type: 'recharge',
       amountINR: amount,
       status: 'completed',
@@ -442,7 +455,7 @@ export default function App() {
 
     const newTx: WalletTransaction = {
       id: `tx-${Date.now()}`,
-      userId: 'u-amit',
+      userId: userId,
       type: 'recharge',
       amountINR: amount,
       cashbackINR: cashback,
@@ -452,6 +465,20 @@ export default function App() {
       createdAt: new Date().toISOString(),
     };
     setTransactions([newTx, ...transactions]);
+
+    // Update backend user balance so admin panel stays synced
+    try {
+      const baseUrl = getApiBaseUrl();
+      fetch(`${baseUrl}/api/admin/users/adjust-balance`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: userId,
+          deltaINR: totalAdded,
+          description: `Test Sandbox Recharge ₹${amount} ${cashback > 0 ? `(+₹${cashback} Cashback)` : ''}`,
+        }),
+      }).catch(() => {});
+    } catch (e) {}
 
     Alert.alert(
       'Recharge Successful',
@@ -565,6 +592,8 @@ export default function App() {
           <WalletScreen
             balanceINR={walletBalanceINR}
             isDesktop={isDesktop}
+            userId={userId}
+            userName={userName}
             onHistoryPress={() => setCurrentScreen('transactions')}
             onRechargeSuccess={handleRechargeSuccess}
           />

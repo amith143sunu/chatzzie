@@ -69,6 +69,7 @@ export const WelcomeGateModal: React.FC<WelcomeGateModalProps> = ({
       if (data.success && data.user) {
         if (typeof window !== 'undefined' && window.localStorage) {
           window.localStorage.setItem('chatzie_user_profile', JSON.stringify(data.user));
+          window.localStorage.setItem('chatzie_current_user', JSON.stringify(data.user));
         }
         onComplete(data.user);
       } else {
@@ -82,6 +83,7 @@ export const WelcomeGateModal: React.FC<WelcomeGateModalProps> = ({
         };
         if (typeof window !== 'undefined' && window.localStorage) {
           window.localStorage.setItem('chatzie_user_profile', JSON.stringify(localUser));
+          window.localStorage.setItem('chatzie_current_user', JSON.stringify(localUser));
         }
         onComplete(localUser);
       }
@@ -96,6 +98,7 @@ export const WelcomeGateModal: React.FC<WelcomeGateModalProps> = ({
       };
       if (typeof window !== 'undefined' && window.localStorage) {
         window.localStorage.setItem('chatzie_user_profile', JSON.stringify(localUser));
+        window.localStorage.setItem('chatzie_current_user', JSON.stringify(localUser));
       }
       onComplete(localUser);
     } finally {
