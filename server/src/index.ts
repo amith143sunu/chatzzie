@@ -421,6 +421,71 @@ app.get('/api/calls/token', (req, res) => {
   }
 });
 
+// In-memory live ring registry for real-time 1:1 call signaling
+interface ActiveRingCall {
+  channel: string;
+  callerName: string;
+  callerId: string;
+  listenerUsername: string;
+  callType: 'audio' | 'video';
+  ratePerMin: number;
+  timestamp: number;
+  status: 'ringing' | 'accepted' | 'declined' | 'ended';
+}
+
+const activeRingingCalls: Record<string, ActiveRingCall> = {};
+
+// 1. Caller dials host
+app.post('/api/calls/dial', (req, res) => {
+  const { callerName, callerId, listenerUsername, callType, ratePerMin } = req.body;
+  const channel = `call_${listenerUsername}`;
+  activeRingingCalls[listenerUsername] = {
+    channel,
+    callerName: callerName || 'Caller',
+    callerId: callerId || 'u-caller',
+    listenerUsername,
+    callType: callType || 'audio',
+    ratePerMin: ratePerMin || 9,
+    timestamp: Date.now(),
+    status: 'ringing',
+  };
+  res.json({ success: true, call: activeRingingCalls[listenerUsername] });
+});
+
+// 2. Host polls for incoming calls (e.g. Host waiting on Laptop)
+app.get('/api/calls/check-incoming', (req, res) => {
+  const { username } = req.query;
+  if (!username || typeof username !== 'string') {
+    return res.json({ hasIncoming: false });
+  }
+  const call = activeRingingCalls[username];
+  // Ring timeout after 45 seconds
+  if (call && call.status === 'ringing' && Date.now() - call.timestamp < 45000) {
+    return res.json({ hasIncoming: true, call });
+  }
+  res.json({ hasIncoming: false });
+});
+
+// 3. Host accepts call
+app.post('/api/calls/accept', (req, res) => {
+  const { username } = req.body;
+  if (activeRingingCalls[username]) {
+    activeRingingCalls[username].status = 'accepted';
+    return res.json({ success: true, call: activeRingingCalls[username] });
+  }
+  res.json({ success: false });
+});
+
+// 4. Host declines call
+app.post('/api/calls/decline', (req, res) => {
+  const { username } = req.body;
+  if (activeRingingCalls[username]) {
+    activeRingingCalls[username].status = 'declined';
+    delete activeRingingCalls[username];
+  }
+  res.json({ success: true });
+});
+
 // Start call session
 app.post('/api/calls/start', (req, res) => {
   const { channel, caller, listener, type, ratePerMinINR } = req.body;

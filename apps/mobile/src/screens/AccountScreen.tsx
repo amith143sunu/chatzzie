@@ -35,7 +35,7 @@ interface AccountScreenProps {
   isListenerVerified?: boolean;
   userName?: string;
   userRole?: 'talker' | 'listener';
-  onSwitchProfilePress?: () => void;
+  onLogout?: () => void;
 }
 
 export const AccountScreen: React.FC<AccountScreenProps> = ({
@@ -47,7 +47,7 @@ export const AccountScreen: React.FC<AccountScreenProps> = ({
   isListenerVerified = false,
   userName = 'Amit',
   userRole = 'talker',
-  onSwitchProfilePress,
+  onLogout,
 }) => {
   return (
     <View style={styles.container}>
@@ -70,9 +70,9 @@ export const AccountScreen: React.FC<AccountScreenProps> = ({
             <Text style={styles.userName}>Hello, {userName}</Text>
             <Text style={styles.userPhone}>Role: {userRole === 'listener' ? 'Host (Listener)' : 'Caller (Talker)'}</Text>
           </View>
-          {onSwitchProfilePress && (
-            <TouchableOpacity style={styles.editBtn} onPress={onSwitchProfilePress} activeOpacity={0.8}>
-              <Text style={styles.editBtnText}>Switch Profile</Text>
+          {onLogout && (
+            <TouchableOpacity style={styles.editBtn} onPress={onLogout} activeOpacity={0.8}>
+              <Text style={styles.editBtnText}>Log Out</Text>
             </TouchableOpacity>
           )}
         </View>
@@ -153,9 +153,13 @@ export const AccountScreen: React.FC<AccountScreenProps> = ({
 
         {/* Sign Out & Version Info */}
         <View style={styles.footerSection}>
-          <TouchableOpacity style={styles.signOutBtn} activeOpacity={0.8}>
+          <TouchableOpacity
+            style={styles.signOutBtn}
+            onPress={onLogout}
+            activeOpacity={0.8}
+          >
             <LogOut size={16} color={THEME.colors.primary} />
-            <Text style={styles.signOutText}>Sign Out</Text>
+            <Text style={styles.signOutText}>Change Account / Sign Out</Text>
           </TouchableOpacity>
 
           <Text style={styles.versionText}>Version 1.0.179</Text>

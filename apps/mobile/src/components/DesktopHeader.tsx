@@ -175,20 +175,12 @@ export const DesktopHeader: React.FC<DesktopHeaderProps> = ({
             </View>
           </TouchableOpacity>
 
-          {/* User Profile & Switch Button */}
-          {onSwitchProfilePress && (
-            <TouchableOpacity
-              style={styles.userRolePill}
-              onPress={onSwitchProfilePress}
-              activeOpacity={0.85}
-              title="Click to Switch Profile / Role"
-            >
-              <View style={[styles.roleBadgeDot, userRole === 'listener' ? styles.listenerDot : styles.talkerDot]} />
-              <Text style={styles.userNameHeader}>{userName}</Text>
-              <Text style={styles.userRoleHeader}>({userRole === 'listener' ? 'Host' : 'User'})</Text>
-              <Text style={styles.switchText}>Switch</Text>
-            </TouchableOpacity>
-          )}
+          {/* User Profile Pill */}
+          <View style={styles.userRolePill}>
+            <View style={[styles.roleBadgeDot, userRole === 'listener' ? styles.listenerDot : styles.talkerDot]} />
+            <Text style={styles.userNameHeader}>{userName}</Text>
+            <Text style={styles.userRoleHeader}>({userRole === 'listener' ? 'Host' : 'Caller'})</Text>
+          </View>
 
           {/* User Avatar */}
           <TouchableOpacity

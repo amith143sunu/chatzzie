@@ -20,7 +20,8 @@ import { PolicyModal, PolicyType } from './src/screens/PolicyModal';
 import { HelpScreen } from './src/screens/HelpScreen';
 import { ListenerOnboardingModal } from './src/screens/ListenerOnboardingModal';
 import { ListenerEarningsModal } from './src/screens/ListenerEarningsModal';
-import { QuickAuthModal } from './src/components/QuickAuthModal';
+import { WelcomeGateModal } from './src/components/WelcomeGateModal';
+import { HostLiveScreen } from './src/screens/HostLiveScreen';
 import { DeviceFrame, ViewMode } from './src/components/DeviceFrame';
 import { InsufficientBalanceModal } from './src/components/InsufficientBalanceModal';
 import { ListenerProfile, WalletTransaction, Coupon, DEFAULT_COUPONS } from '@chatzie/shared';
@@ -100,40 +101,55 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<NavTab>('home');
   const [currentScreen, setCurrentScreen] = useState<ScreenView>('tab_home');
 
-  // Real-time App State (Initialized with ₹120.00 for instant live testing!)
-  const [walletBalanceINR, setWalletBalanceINR] = useState<number>(120.00);
+  // Real-time App State (Welcome balance ₹60.00 for instant live testing)
+  const [walletBalanceINR, setWalletBalanceINR] = useState<number>(60.00);
   const [listeners, setListeners] = useState<ListenerProfile[]>(mockListeners);
   const [transactions, setTransactions] = useState<WalletTransaction[]>(mockTransactions);
   const [userName, setUserName] = useState('Amit');
   const [userRole, setUserRole] = useState<'talker' | 'listener'>('talker');
-  const [userId, setUserId] = useState<string>('u-amit');
-  const [showAuthModal, setShowAuthModal] = useState<boolean>(false);
+  const [userUsername, setUserUsername] = useState<string>('amit_caller');
+  const [userId, setUserId] = useState<string>('u_amit');
   const [userAvatar, setUserAvatar] = useState('https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=200&q=80');
+  const [showWelcomeGate, setShowWelcomeGate] = useState<boolean>(() => {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      const saved = window.localStorage.getItem('chatzie_user_profile') || window.localStorage.getItem('chatzie_current_user');
+      return !saved;
+    }
+    return false;
+  });
 
   // Load saved user identity from localStorage on startup
   useEffect(() => {
     try {
       if (typeof window !== 'undefined' && window.localStorage) {
-        const saved = window.localStorage.getItem('chatzie_current_user');
+        const saved = window.localStorage.getItem('chatzie_user_profile') || window.localStorage.getItem('chatzie_current_user');
         if (saved) {
           const parsed = JSON.parse(saved);
           if (parsed.name) setUserName(parsed.name);
+          if (parsed.username) setUserUsername(parsed.username);
           if (parsed.role) setUserRole(parsed.role);
           if (parsed.id) setUserId(parsed.id);
+          if (parsed.avatarUrl) setUserAvatar(parsed.avatarUrl);
           if (typeof parsed.walletBalanceINR === 'number') setWalletBalanceINR(parsed.walletBalanceINR);
           if (parsed.role === 'listener') setIsListenerVerified(true);
+        } else {
+          setShowWelcomeGate(true);
         }
       }
     } catch (e) {}
   }, []);
 
-  const handleAuthSuccess = (u: any) => {
+  const handleWelcomeComplete = (u: any) => {
     setUserName(u.name);
     setUserRole(u.role);
     setUserId(u.id);
+    setUserUsername(u.username || u.name.toLowerCase().replace(/[^a-z0-9]/g, '_'));
+    if (u.avatarUrl) setUserAvatar(u.avatarUrl);
     if (typeof u.walletBalanceINR === 'number') {
       setWalletBalanceINR(u.walletBalanceINR);
     }
+    setShowWelcomeGate(false);
+
     if (u.role === 'listener') {
       setIsListenerVerified(true);
       fetch(`${getApiBaseUrl()}/api/listeners`)
@@ -142,9 +158,39 @@ export default function App() {
           if (Array.isArray(data)) setListeners(data);
         })
         .catch(() => {});
-    } else {
-      setIsListenerVerified(false);
     }
+  };
+
+  const handleLogout = () => {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      window.localStorage.removeItem('chatzie_user_profile');
+      window.localStorage.removeItem('chatzie_current_user');
+    }
+    setUserRole('talker');
+    setUserName('');
+    setUserUsername('');
+    setShowWelcomeGate(true);
+    setCurrentScreen('tab_home');
+  };
+
+  const handleHostAcceptCall = (call: any) => {
+    const hostProfile: ListenerProfile = {
+      id: userId,
+      name: userName,
+      username: userUsername,
+      avatarUrl: userAvatar,
+      bio: 'Verified Host',
+      callRatePerMinINR: call.callType === 'video' ? 30 : 9,
+      chatRatePerMsgINR: 0.25,
+      isOnline: true,
+      isVideoEnabled: true,
+      languages: ['Hindi', 'English'],
+      totalCalls: 12,
+      rating: 4.9,
+    };
+    setSelectedListener(hostProfile);
+    setActiveCallType(call.callType || 'video');
+    setCurrentScreen('active_call');
   };
 
   // Active Contexts
@@ -249,6 +295,22 @@ export default function App() {
       return;
     }
 
+    // Send ring signal to backend for host
+    try {
+      const baseUrl = getApiBaseUrl();
+      fetch(`${baseUrl}/api/calls/dial`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          callerName: userName || 'Caller',
+          callerId: userId,
+          listenerUsername: listener.username,
+          callType: type,
+          ratePerMin: type === 'video' ? 30 : 9,
+        }),
+      }).catch(() => {});
+    } catch (e) {}
+
     setSelectedListener(listener);
     setActiveCallType(type);
     setCurrentScreen('active_call');
@@ -323,21 +385,23 @@ export default function App() {
     const billedMinutes = Math.max(1, Math.ceil(durationSeconds / 60));
     const ratePerMin = activeCallType === 'video' ? 30 : 9;
     const cost = Number((billedMinutes * ratePerMin).toFixed(2));
-    const newBal = Math.max(0, Number((walletBalanceINR - cost).toFixed(2)));
 
-    setWalletBalanceINR(newBal);
+    if (userRole === 'talker') {
+      const newBal = Math.max(0, Number((walletBalanceINR - cost).toFixed(2)));
+      setWalletBalanceINR(newBal);
 
-    const newTx: WalletTransaction = {
-      id: `tx-${Date.now()}`,
-      userId: 'u-amit',
-      type: 'call_deduction',
-      amountINR: -cost,
-      status: 'completed',
-      description: `${activeCallType === 'video' ? 'Video' : 'Voice'} Call (${billedMinutes} min @ ₹${ratePerMin}/min) with ${selectedListener.username}`,
-      referenceId: `call_${Date.now()}`,
-      createdAt: new Date().toISOString(),
-    };
-    setTransactions([newTx, ...transactions]);
+      const newTx: WalletTransaction = {
+        id: `tx-${Date.now()}`,
+        userId: userId,
+        type: 'call_deduction',
+        amountINR: -cost,
+        status: 'completed',
+        description: `${activeCallType === 'video' ? 'Video' : 'Voice'} Call (${billedMinutes} min @ ₹${ratePerMin}/min) with ${selectedListener.username}`,
+        referenceId: `call_${Date.now()}`,
+        createdAt: new Date().toISOString(),
+      };
+      setTransactions([newTx, ...transactions]);
+    }
 
     // Notify backend to credit host earnings (₹4.50/min voice, ₹16/min video) and settle balances
     try {
@@ -349,21 +413,25 @@ export default function App() {
           channel: `call_${selectedListener.username}`,
           durationSeconds,
           totalCost: cost,
-          callerId: 'u-amit',
+          callerId: userId,
           listenerId: selectedListener.id,
           callType: activeCallType,
         }),
       }).catch(() => {});
     } catch (e) {}
 
-    // Show Call Summary & Rating modal
-    setSummaryData({
-      visible: true,
-      duration: durationSeconds,
-      cost,
-    });
-
-    setCurrentScreen('tab_calls');
+    if (userRole === 'talker') {
+      // Show Call Summary & Rating modal
+      setSummaryData({
+        visible: true,
+        duration: durationSeconds,
+        cost,
+      });
+      setCurrentScreen('tab_calls');
+    } else {
+      // Host returns to Host Live screen
+      setCurrentScreen('tab_home');
+    }
   };
 
   // Recharge Success
@@ -392,6 +460,37 @@ export default function App() {
     );
   };
 
+  if (userRole === 'listener') {
+    return (
+      <ErrorBoundary>
+        <SafeAreaView style={styles.safeArea}>
+          <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+          {currentScreen === 'active_call' ? (
+            <ActiveCallScreen
+              listener={selectedListener}
+              callType={activeCallType}
+              userBalanceINR={walletBalanceINR}
+              onEndCall={handleEndCall}
+              onBalanceDepleted={() => {}}
+            />
+          ) : (
+            <HostLiveScreen
+              hostName={userName}
+              hostUsername={userUsername}
+              hostAvatar={userAvatar}
+              onAcceptCall={handleHostAcceptCall}
+              onLogout={handleLogout}
+            />
+          )}
+          <WelcomeGateModal
+            visible={showWelcomeGate}
+            onComplete={handleWelcomeComplete}
+          />
+        </SafeAreaView>
+      </ErrorBoundary>
+    );
+  }
+
   return (
     <ErrorBoundary>
       <DeviceFrame viewMode={viewMode} onToggleViewMode={setViewMode}>
@@ -412,7 +511,6 @@ export default function App() {
             onToggleViewMode={setViewMode}
             userName={userName}
             userRole={userRole}
-            onSwitchProfilePress={() => setShowAuthModal(true)}
           />
         )}
 
@@ -547,7 +645,7 @@ export default function App() {
             onHelpPress={() => setCurrentScreen('help')}
             onBecomeListenerPress={() => setShowOnboardingModal(true)}
             onEarningsPress={() => setShowEarningsModal(true)}
-            onSwitchProfilePress={() => setShowAuthModal(true)}
+            onLogout={handleLogout}
           />
         )}
 
@@ -636,13 +734,10 @@ export default function App() {
           }}
         />
 
-        {/* Quick Sign-Up & Profile Switcher Modal (Zero OTP) */}
-        <QuickAuthModal
-          visible={showAuthModal}
-          onClose={() => setShowAuthModal(false)}
-          onLoginSuccess={handleAuthSuccess}
-          currentRole={userRole}
-          currentName={userName}
+        {/* Welcome Gate Onboarding Modal (Zero OTP) */}
+        <WelcomeGateModal
+          visible={showWelcomeGate}
+          onComplete={handleWelcomeComplete}
         />
 
         {/* Legal Policy Viewer Modal */}

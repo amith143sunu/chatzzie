@@ -138,6 +138,34 @@ export const ActiveCallScreen: React.FC<ActiveCallScreenProps> = ({
           });
         });
 
+        const playRemoteVideo = (track: any, attempts = 0) => {
+          if (!track) return;
+          const el = document.getElementById('agora-remote-video');
+          if (el) {
+            try {
+              track.play(el);
+            } catch (e) {
+              console.warn('Remote video play error:', e);
+            }
+          } else if (attempts < 6) {
+            setTimeout(() => playRemoteVideo(track, attempts + 1), 200);
+          }
+        };
+
+        const playLocalCamera = (track: any, attempts = 0) => {
+          if (!track) return;
+          const el = document.getElementById('agora-local-video');
+          if (el) {
+            try {
+              track.play(el, { fit: 'cover', mirror: true });
+            } catch (e) {
+              console.warn('Local camera play error:', e);
+            }
+          } else if (attempts < 6) {
+            setTimeout(() => playLocalCamera(track, attempts + 1), 200);
+          }
+        };
+
         // Partner speaks or turns on camera
         client.on('user-published', async (user: any, mediaType: string) => {
           try {
@@ -155,16 +183,7 @@ export const ActiveCallScreen: React.FC<ActiveCallScreenProps> = ({
               setHasRemoteVideo(true);
               setHasRemoteUser(true);
               setAgoraStatus('Live 2-Way Video Connected!');
-              setTimeout(() => {
-                const el = remoteVideoRef.current || document.getElementById('agora-remote-video');
-                if (el && user.videoTrack) {
-                  try {
-                    user.videoTrack.play(el);
-                  } catch (e) {
-                    console.warn('Remote video play error:', e);
-                  }
-                }
-              }, 300);
+              playRemoteVideo(user.videoTrack);
             }
           } catch (e) {
             console.warn('Subscribe error:', e);
@@ -227,16 +246,7 @@ export const ActiveCallScreen: React.FC<ActiveCallScreenProps> = ({
 
           // Play local camera preview in PiP box
           if (cameraTrack) {
-            setTimeout(() => {
-              const el = localVideoRef.current || document.getElementById('agora-local-video');
-              if (el && cameraTrackRef.current) {
-                try {
-                  cameraTrackRef.current.play(el);
-                } catch (e) {
-                  console.warn('Local camera play error:', e);
-                }
-              }
-            }, 300);
+            playLocalCamera(cameraTrack);
           }
 
           // Check if remote users are already present
@@ -255,16 +265,7 @@ export const ActiveCallScreen: React.FC<ActiveCallScreenProps> = ({
               if (u.hasVideo) {
                 await client.subscribe(u, 'video');
                 setHasRemoteVideo(true);
-                setTimeout(() => {
-                  const el = remoteVideoRef.current || document.getElementById('agora-remote-video');
-                  if (el && u.videoTrack) {
-                    try {
-                      u.videoTrack.play(el);
-                    } catch (e) {
-                      console.warn('Remote video play error:', e);
-                    }
-                  }
-                }, 300);
+                playRemoteVideo(u.videoTrack);
               }
             });
           } else {
@@ -410,31 +411,43 @@ export const ActiveCallScreen: React.FC<ActiveCallScreenProps> = ({
       {/* Main Calling Stage */}
       {callType === 'video' ? (
         <View style={styles.videoCallingStage}>
-          {/* Remote Video Container Layer */}
+          {/* Dedicated Clean Agora Remote Video Target (No React Child Reconciliation) */}
           <View
-            ref={remoteVideoRef}
             // @ts-ignore
             id="agora-remote-video"
             nativeID="agora-remote-video"
             style={styles.remoteVideoLayer}
-          >
-            {!hasRemoteVideo && (
-              <View style={styles.videoWaitingOverlay}>
-                <Image source={{ uri: listener.avatarUrl }} style={styles.listenerAvatarVideo} />
-                <Text style={styles.videoWaitingName}>{listener.name}</Text>
-                <Text style={styles.videoWaitingSub}>Connecting partner camera...</Text>
-              </View>
-            )}
-          </View>
+          />
+
+          {/* Sibling Overlay: Shown only while waiting for partner video to arrive */}
+          {!hasRemoteVideo && (
+            <View style={styles.videoWaitingOverlay}>
+              <Image source={{ uri: listener.avatarUrl }} style={styles.listenerAvatarVideo} />
+              <Text style={styles.videoWaitingName}>{listener.name}</Text>
+              <Text style={styles.videoWaitingSub}>
+                {hasRemoteUser ? 'Partner in room • Starting video stream...' : 'Waiting for partner to connect...'}
+              </Text>
+            </View>
+          )}
+
+          {/* Camera Permission Alert Banner */}
+          {cameraBlocked && (
+            <View style={styles.cameraBlockedBanner}>
+              <ShieldAlert size={14} color="#FFFFFF" />
+              <Text style={styles.cameraBlockedText}>
+                Camera blocked in browser! Please click the lock/camera icon in your address bar to Allow.
+              </Text>
+            </View>
+          )}
 
           {/* Floating Local Camera PiP (Self View) */}
-          <View
-            ref={localVideoRef}
-            // @ts-ignore
-            id="agora-local-video"
-            nativeID="agora-local-video"
-            style={styles.localVideoPiP}
-          >
+          <View style={styles.localVideoPiP}>
+            <View
+              // @ts-ignore
+              id="agora-local-video"
+              nativeID="agora-local-video"
+              style={StyleSheet.absoluteFillObject}
+            />
             {isCameraOff && (
               <View style={styles.cameraOffOverlay}>
                 <VideoOff size={16} color="#FFFFFF" />
@@ -1047,6 +1060,7 @@ const styles = StyleSheet.create({
   // Video Calling Stage Styles
   videoCallingStage: {
     flex: 1,
+    minHeight: 380,
     width: '100%',
     position: 'relative',
     borderRadius: 24,
@@ -1067,8 +1081,31 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   videoWaitingOverlay: {
+    ...StyleSheet.absoluteFillObject,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: '#0F172A',
+    zIndex: 2,
+  },
+  cameraBlockedBanner: {
+    position: 'absolute',
+    top: 60,
+    left: 16,
+    right: 16,
+    backgroundColor: '#DC2626',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    zIndex: 15,
+  },
+  cameraBlockedText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '700',
+    flex: 1,
   },
   listenerAvatarVideo: {
     width: 110,
