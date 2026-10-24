@@ -28,6 +28,7 @@ import {
 } from 'lucide-react-native';
 import { ListenerProfile } from '@chatzie/shared';
 import { THEME } from '../theme';
+import { getApiBaseUrl } from '../services/apiConfig';
 
 interface ActiveCallScreenProps {
   listener: ListenerProfile;
@@ -203,13 +204,13 @@ export const ActiveCallScreen: React.FC<ActiveCallScreenProps> = ({
           }
         }
 
-        // 3. Fetch signed Agora token from Chatzie server on port 8682
+        // 3. Fetch signed Agora token from Chatzie server
         const channelName = `call_${listener.username}`;
         const uid = Math.floor(1000 + Math.random() * 9000);
         currentUidRef.current = uid;
-        const host = typeof window !== 'undefined' && window.location.hostname ? window.location.hostname : 'localhost';
+        const baseUrl = getApiBaseUrl();
 
-        const res = await fetch(`http://${host}:8682/api/calls/token?channel=${channelName}&uid=${uid}`);
+        const res = await fetch(`${baseUrl}/api/calls/token?channel=${channelName}&uid=${uid}`);
         const data = await res.json();
 
         if (data.token && data.appId) {
@@ -355,6 +356,18 @@ export const ActiveCallScreen: React.FC<ActiveCallScreenProps> = ({
   const handleEnd = () => {
     const billedMinutes = Math.max(1, Math.ceil(secondsElapsed / 60));
     const totalCost = billedMinutes * effectiveRatePerMinINR;
+    try {
+      const baseUrl = getApiBaseUrl();
+      fetch(`${baseUrl}/api/calls/end`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          channel: `call_${listener.username}`,
+          durationSeconds: secondsElapsed,
+          totalCost,
+        }),
+      }).catch(() => {});
+    } catch (e) {}
     onEndCall(secondsElapsed, totalCost);
   };
 

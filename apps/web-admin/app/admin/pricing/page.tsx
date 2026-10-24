@@ -18,6 +18,7 @@ import {
   HelpCircle
 } from 'lucide-react';
 import { DEFAULT_RECHARGE_PACKAGES, DEFAULT_COUPONS, RechargePackage, Coupon } from '@chatzie/shared';
+import { getApiBaseUrl } from '../apiConfig';
 
 export default function PricingCouponsPage() {
   const [packages, setPackages] = useState<RechargePackage[]>(DEFAULT_RECHARGE_PACKAGES);
@@ -42,16 +43,28 @@ export default function PricingCouponsPage() {
     }, 3500);
   };
 
-  const getBackendHost = () => {
-    if (typeof window !== 'undefined' && window.location.hostname) {
-      return window.location.hostname;
-    }
-    return 'localhost';
-  };
+  useEffect(() => {
+    const fetchPricing = async () => {
+      try {
+        const baseUrl = getApiBaseUrl();
+        const res = await fetch(`${baseUrl}/api/admin/pricing`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.pricing?.platformCommissionPercent) {
+            setPlatformCommission(data.pricing.platformCommissionPercent);
+          }
+          if (data.rechargePackages) setPackages(data.rechargePackages);
+          if (data.coupons) setCoupons(data.coupons);
+        }
+      } catch (e) {}
+    };
+    fetchPricing();
+  }, []);
 
   const handleSaveCommission = async () => {
     try {
-      await fetch(`http://${getBackendHost()}:8682/api/admin/pricing`, {
+      const baseUrl = getApiBaseUrl();
+      await fetch(`${baseUrl}/api/admin/pricing`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ platformCommissionPercent: platformCommission }),

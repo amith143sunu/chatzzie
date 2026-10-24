@@ -17,6 +17,7 @@ import {
   AlertTriangle,
   UserCheck
 } from 'lucide-react';
+import { getApiBaseUrl } from '../apiConfig';
 
 interface AdminUser {
   id: string;
@@ -86,18 +87,12 @@ export default function UsersDirectoryPage() {
     }, 3500);
   };
 
-  const getBackendHost = () => {
-    if (typeof window !== 'undefined' && window.location.hostname) {
-      return window.location.hostname;
-    }
-    return 'localhost';
-  };
-
   // Live fetch from backend
   const fetchLiveUsers = async () => {
     setIsLoading(true);
     try {
-      const res = await fetch(`http://${getBackendHost()}:8682/api/admin/users`);
+      const baseUrl = getApiBaseUrl();
+      const res = await fetch(`${baseUrl}/api/admin/users`);
       if (res.ok) {
         const data = await res.json();
         if (data.users && data.users.length > 0) {
@@ -123,7 +118,8 @@ export default function UsersDirectoryPage() {
     const amountVal = parseFloat(adjustAmount);
 
     try {
-      await fetch(`http://${getBackendHost()}:8682/api/admin/users/adjust-balance`, {
+      const baseUrl = getApiBaseUrl();
+      await fetch(`${baseUrl}/api/admin/users/adjust-balance`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -153,7 +149,8 @@ export default function UsersDirectoryPage() {
 
   const handleQuickCredit = async (user: AdminUser, amount: number) => {
     try {
-      await fetch(`http://${getBackendHost()}:8682/api/admin/users/adjust-balance`, {
+      const baseUrl = getApiBaseUrl();
+      await fetch(`${baseUrl}/api/admin/users/adjust-balance`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -180,7 +177,8 @@ export default function UsersDirectoryPage() {
     const nextBan = !user.isBanned;
 
     try {
-      await fetch(`http://${getBackendHost()}:8682/api/admin/users/${user.id}/ban`, {
+      const baseUrl = getApiBaseUrl();
+      await fetch(`${baseUrl}/api/admin/users/${user.id}/ban`, {
         method: 'POST',
       });
     } catch (e) {}

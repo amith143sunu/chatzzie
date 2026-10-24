@@ -14,6 +14,7 @@ import {
   ArrowRight,
   Clock
 } from 'lucide-react';
+import { getApiBaseUrl } from './apiConfig';
 
 export default function AdminDashboardPage() {
   const [stats, setStats] = useState({
@@ -28,8 +29,8 @@ export default function AdminDashboardPage() {
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        const host = typeof window !== 'undefined' && window.location.hostname ? window.location.hostname : 'localhost';
-        const res = await fetch(`http://${host}:8682/api/admin/dashboard`);
+        const baseUrl = getApiBaseUrl();
+        const res = await fetch(`${baseUrl}/api/admin/dashboard`);
         if (res.ok) {
           const data = await res.json();
           setStats(prev => ({ ...prev, ...data }));

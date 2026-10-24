@@ -1,4 +1,4 @@
-import { User, ListenerProfile, WalletTransaction, PayoutRequest, PushNotificationPayload } from '@chatzie/shared';
+import { User, ListenerProfile, WalletTransaction, PayoutRequest, PushNotificationPayload, PaymentOrder } from '@chatzie/shared';
 
 // Pre-seeded verified Listeners matching the quality and structure of the reference app
 export const mockListeners: ListenerProfile[] = [
@@ -23,6 +23,8 @@ export const mockListeners: ListenerProfile[] = [
     panNumber: 'ABCDE1234F',
     upiId: 'sonika@okaxis',
     isAvailableForCalls: true,
+    earningsBalanceINR: 2340.00,
+    totalEarnedINR: 8420.00,
   },
   {
     id: 'list-2',
@@ -45,6 +47,8 @@ export const mockListeners: ListenerProfile[] = [
     panNumber: 'FGHIJ5678K',
     upiId: 'jyoti@oksbi',
     isAvailableForCalls: true,
+    earningsBalanceINR: 4120.00,
+    totalEarnedINR: 14200.00,
   },
   {
     id: 'list-3',
@@ -67,6 +71,8 @@ export const mockListeners: ListenerProfile[] = [
     panNumber: 'KLMNO9012P',
     upiId: 'mahira@paytm',
     isAvailableForCalls: true,
+    earningsBalanceINR: 1250.00,
+    totalEarnedINR: 4890.00,
   },
   {
     id: 'list-4',
@@ -89,8 +95,12 @@ export const mockListeners: ListenerProfile[] = [
     panNumber: 'PQRST3456U',
     upiId: 'ankita@ybl',
     isAvailableForCalls: true,
+    earningsBalanceINR: 3100.00,
+    totalEarnedINR: 9800.00,
   }
 ];
+
+export const mockOrders: PaymentOrder[] = [];
 
 export interface AdminUser extends User {
   isBanned?: boolean;

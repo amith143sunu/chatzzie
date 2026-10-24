@@ -20,12 +20,14 @@ import {
 } from 'lucide-react-native';
 import { DEFAULT_RECHARGE_PACKAGES, RechargePackage } from '@chatzie/shared';
 import { THEME } from '../theme';
+import { PaymentCheckoutModal } from '../components/PaymentCheckoutModal';
 
 interface WalletScreenProps {
   balanceINR: number;
   onBackPress?: () => void;
   onHistoryPress?: () => void;
   onRechargeSuccess: (amount: number, cashback: number) => void;
+  isDesktop?: boolean;
 }
 
 export const WalletScreen: React.FC<WalletScreenProps> = ({
@@ -33,10 +35,12 @@ export const WalletScreen: React.FC<WalletScreenProps> = ({
   onBackPress,
   onHistoryPress,
   onRechargeSuccess,
+  isDesktop = false,
 }) => {
   const [selectedPack, setSelectedPack] = useState<RechargePackage>(DEFAULT_RECHARGE_PACKAGES[5]); // default ₹2499
   const [couponApplied, setCouponApplied] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isCheckoutModalVisible, setIsCheckoutModalVisible] = useState(false);
   const [customModalVisible, setCustomModalVisible] = useState(false);
   const [customAmount, setCustomAmount] = useState('');
 
@@ -45,12 +49,7 @@ export const WalletScreen: React.FC<WalletScreenProps> = ({
   };
 
   const handleRecharge = () => {
-    setIsProcessing(true);
-    // Simulate Razorpay checkout
-    setTimeout(() => {
-      setIsProcessing(false);
-      onRechargeSuccess(selectedPack.amountINR, selectedPack.cashbackINR);
-    }, 1200);
+    setIsCheckoutModalVisible(true);
   };
 
   const handleApplyCustomAmount = () => {
@@ -69,32 +68,51 @@ export const WalletScreen: React.FC<WalletScreenProps> = ({
 
   return (
     <View style={styles.container}>
-      {/* Top Header */}
-      <View style={styles.header}>
-        <View style={styles.headerLeft}>
-          {onBackPress && (
-            <TouchableOpacity onPress={onBackPress} style={styles.backButton}>
-              <ArrowLeft size={22} color={THEME.colors.textPrimary} />
-            </TouchableOpacity>
-          )}
-          <Text style={styles.headerTitle}>Wallet</Text>
-        </View>
-
-        <View style={styles.headerRight}>
-          {/* Balance Pill with Coins & INR */}
-          <View style={styles.balancePill}>
-            <Text style={styles.coinsAmount}>{(balanceINR * 10).toLocaleString('en-IN')}</Text>
-            <Text style={styles.coinsLabel}>Coins (₹{balanceINR.toFixed(0)})</Text>
+      {/* Top Header (Only on Mobile) */}
+      {!isDesktop && (
+        <View style={styles.header}>
+          <View style={styles.headerLeft}>
+            {onBackPress && (
+              <TouchableOpacity onPress={onBackPress} style={styles.backButton}>
+                <ArrowLeft size={22} color={THEME.colors.textPrimary} />
+              </TouchableOpacity>
+            )}
+            <Text style={styles.headerTitle}>Wallet</Text>
           </View>
 
-          {/* Transactions Button */}
+          <View style={styles.headerRight}>
+            {/* Balance Pill with Coins & INR */}
+            <View style={styles.balancePill}>
+              <Text style={styles.coinsAmount}>{(balanceINR * 10).toLocaleString('en-IN')}</Text>
+              <Text style={styles.coinsLabel}>Coins (₹{balanceINR.toFixed(0)})</Text>
+            </View>
+
+            {/* Transactions Button */}
+            {onHistoryPress && (
+              <TouchableOpacity onPress={onHistoryPress} style={styles.historyBtn} activeOpacity={0.8}>
+                <Clock size={18} color={THEME.colors.primary} />
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
+      )}
+
+      {isDesktop && (
+        <View style={styles.desktopWalletHeader}>
+          <View>
+            <Text style={styles.desktopWalletTitle}>Wallet & Coin Recharge</Text>
+            <Text style={styles.desktopWalletSub}>
+              Universal ₹9/min Voice & ₹30/min Video • Instant automated coin credits
+            </Text>
+          </View>
           {onHistoryPress && (
-            <TouchableOpacity onPress={onHistoryPress} style={styles.historyBtn} activeOpacity={0.8}>
-              <Clock size={18} color={THEME.colors.primary} />
+            <TouchableOpacity onPress={onHistoryPress} style={styles.desktopHistoryBtn} activeOpacity={0.85}>
+              <Clock size={15} color="#2563EB" />
+              <Text style={styles.desktopHistoryText}>View Transactions</Text>
             </TouchableOpacity>
           )}
         </View>
-      </View>
+      )}
 
       <ScrollView
         showsVerticalScrollIndicator={false}
@@ -223,6 +241,17 @@ export const WalletScreen: React.FC<WalletScreenProps> = ({
           </View>
         </View>
       </Modal>
+
+      {/* Indian Payment Gateway Checkout Modal */}
+      <PaymentCheckoutModal
+        visible={isCheckoutModalVisible}
+        packageDetails={selectedPack}
+        onClose={() => setIsCheckoutModalVisible(false)}
+        onPaymentSuccess={(amount, cashback) => {
+          setIsCheckoutModalVisible(false);
+          onRechargeSuccess(amount, cashback);
+        }}
+      />
     </View>
   );
 };
@@ -541,5 +570,42 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     color: THEME.colors.white,
-  }
+  },
+  desktopWalletHeader: {
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  desktopWalletTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#0F172A',
+    letterSpacing: -0.3,
+  },
+  desktopWalletSub: {
+    fontSize: 13,
+    color: '#64748B',
+    marginTop: 4,
+  },
+  desktopHistoryBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 16,
+    backgroundColor: '#EFF6FF',
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+  },
+  desktopHistoryText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#2563EB',
+  },
 });

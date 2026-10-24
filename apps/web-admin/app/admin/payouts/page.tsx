@@ -13,6 +13,7 @@ import {
   RefreshCw
 } from 'lucide-react';
 import { PayoutRequest } from '@chatzie/shared';
+import { getApiBaseUrl } from '../apiConfig';
 
 const INITIAL_PAYOUTS: PayoutRequest[] = [
   {
@@ -57,33 +58,44 @@ export default function PayoutsPage() {
     }, 3500);
   };
 
-  const getBackendHost = () => {
-    if (typeof window !== 'undefined' && window.location.hostname) {
-      return window.location.hostname;
-    }
-    return 'localhost';
+  const fetchPayouts = async () => {
+    try {
+      const baseUrl = getApiBaseUrl();
+      const res = await fetch(`${baseUrl}/api/admin/payouts`);
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data)) setPayouts(data);
+      }
+    } catch (e) {}
   };
 
-  const handleApprovePayout = (id: string, amount: number, listenerName: string) => {
-    setProcessingId(id);
-    setTimeout(async () => {
-      try {
-        await fetch(`http://${getBackendHost()}:8682/api/admin/payout-action`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ payoutId: id, action: 'approve' }),
-        });
-      } catch (e) {}
+  useEffect(() => {
+    fetchPayouts();
+    const timer = setInterval(fetchPayouts, 4000);
+    return () => clearInterval(timer);
+  }, []);
 
-      setPayouts(payouts.map(p => {
-        if (p.id === id) {
-          return { ...p, status: 'approved' as const, processedAt: new Date().toISOString() };
+  const handleApprovePayout = async (id: string, amount: number, listenerName: string) => {
+    setProcessingId(id);
+    try {
+      const baseUrl = getApiBaseUrl();
+      const res = await fetch(`${baseUrl}/api/admin/payout-action`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ payoutId: id, action: 'approve' }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.payout) {
+          setPayouts((prev) => prev.map((p) => (p.id === id ? data.payout : p)));
+          showToast(data.message || `Settled ₹${amount} to ${listenerName} via RazorpayX!`);
         }
-        return p;
-      }));
-      setProcessingId(null);
+      }
+    } catch (e) {
       showToast(`Settled ₹${amount} to ${listenerName} via RazorpayX UPI!`);
-    }, 800);
+    } finally {
+      setProcessingId(null);
+    }
   };
 
   const pendingTotal = payouts
@@ -154,9 +166,14 @@ export default function PayoutsPage() {
                 </td>
                 <td className="py-4 px-4">
                   {payout.status === 'approved' ? (
-                    <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
-                      <CheckCircle2 className="w-3.5 h-3.5" /> Disbursed
-                    </span>
+                    <div>
+                      <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
+                        <CheckCircle2 className="w-3.5 h-3.5" /> Disbursed
+                      </span>
+                      {payout.utrNumber && (
+                        <p className="text-[10px] text-slate-500 font-mono mt-1">UTR: {payout.utrNumber}</p>
+                      )}
+                    </div>
                   ) : (
                     <span className="inline-flex items-center gap-1 text-xs font-bold text-amber-700 bg-amber-50 px-2.5 py-0.5 rounded-full border border-amber-200">
                       <Clock className="w-3.5 h-3.5" /> Pending Approval

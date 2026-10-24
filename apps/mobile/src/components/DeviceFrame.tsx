@@ -21,15 +21,21 @@ import { THEME } from '../theme';
 
 interface DeviceFrameProps {
   children: React.ReactNode;
+  viewMode?: ViewMode;
+  onToggleViewMode?: (mode: ViewMode) => void;
 }
 
-type ViewMode = 'desktop' | 'mobile';
+export type ViewMode = 'desktop' | 'mobile';
 
-export const DeviceFrame: React.FC<DeviceFrameProps> = ({ children }) => {
+export const DeviceFrame: React.FC<DeviceFrameProps> = ({
+  children,
+  viewMode: controlledViewMode,
+  onToggleViewMode,
+}) => {
   const { width } = useWindowDimensions();
   const isLargeScreen = Platform.OS === 'web' && width > 640;
 
-  const [viewMode, setViewMode] = useState<ViewMode>(() => {
+  const [internalViewMode, setInternalViewMode] = useState<ViewMode>(() => {
     if (typeof window !== 'undefined' && window.localStorage) {
       const saved = window.localStorage.getItem('chatzie_view_mode');
       if (saved === 'mobile' || saved === 'desktop') return saved;
@@ -40,8 +46,14 @@ export const DeviceFrame: React.FC<DeviceFrameProps> = ({ children }) => {
     return 'desktop'; // Default to clean responsive Desktop Web on computer monitors
   });
 
+  const viewMode = controlledViewMode !== undefined ? controlledViewMode : internalViewMode;
+
   const handleToggleMode = (mode: ViewMode) => {
-    setViewMode(mode);
+    if (onToggleViewMode) {
+      onToggleViewMode(mode);
+    } else {
+      setInternalViewMode(mode);
+    }
     if (typeof window !== 'undefined' && window.localStorage) {
       window.localStorage.setItem('chatzie_view_mode', mode);
     }
@@ -188,7 +200,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     width: '100%',
-    maxWidth: 1040,
+    maxWidth: 1200,
     marginBottom: 10,
     paddingHorizontal: 4,
     gap: 12,
@@ -280,7 +292,7 @@ const styles = StyleSheet.create({
   },
   desktopAppContainer: {
     width: '100%',
-    maxWidth: 1040,
+    maxWidth: 1200,
     flex: 1,
     backgroundColor: '#FFFFFF',
     borderRadius: 16,

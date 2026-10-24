@@ -16,6 +16,7 @@ import {
   Ban,
   Bell
 } from 'lucide-react';
+import { getApiBaseUrl } from '../apiConfig';
 
 interface ReportItem {
   id: string;
@@ -74,16 +75,10 @@ export default function ModerationReportsPage() {
     }, 3500);
   };
 
-  const getBackendHost = () => {
-    if (typeof window !== 'undefined' && window.location.hostname) {
-      return window.location.hostname;
-    }
-    return 'localhost';
-  };
-
   const fetchReports = async () => {
     try {
-      const res = await fetch(`http://${getBackendHost()}:8682/api/admin/reports`);
+      const baseUrl = getApiBaseUrl();
+      const res = await fetch(`${baseUrl}/api/admin/reports`);
       if (res.ok) {
         const data = await res.json();
         if (data.reports && data.reports.length > 0) {
@@ -99,7 +94,8 @@ export default function ModerationReportsPage() {
 
   const handleAction = async (reportId: string, action: 'ban' | 'warn' | 'dismiss') => {
     try {
-      await fetch(`http://${getBackendHost()}:8682/api/admin/reports/${reportId}/resolve`, {
+      const baseUrl = getApiBaseUrl();
+      await fetch(`${baseUrl}/api/admin/reports/${reportId}/resolve`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action }),

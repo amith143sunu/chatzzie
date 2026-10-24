@@ -19,6 +19,7 @@ import {
   ShieldCheck
 } from 'lucide-react-native';
 import { THEME } from '../theme';
+import { getApiBaseUrl } from '../services/apiConfig';
 
 interface ListenerOnboardingModalProps {
   visible: boolean;
@@ -47,7 +48,25 @@ export const ListenerOnboardingModal: React.FC<ListenerOnboardingModalProps> = (
     }
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
+    try {
+      const baseUrl = getApiBaseUrl();
+      await fetch(`${baseUrl}/api/listeners/kyc`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: 'Amit Kumar',
+          username: 'amit_connect',
+          phone: '8700788942',
+          languages: ['Hindi', 'English'],
+          bio: bio || 'Compassionate listener eager to connect and support.',
+          panNumber: panNumber || 'ABCDE1234F',
+          upiId: upiId || 'amit@okaxis',
+          isVideoEnabled: true,
+        }),
+      });
+    } catch (e) {}
+
     onSubmitSuccess();
     onClose();
   };

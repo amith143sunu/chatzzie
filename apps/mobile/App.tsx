@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, View, Text, TouchableOpacity, SafeAreaView, StatusBar, Alert } from 'react-native';
+import { StyleSheet, View, Text, TouchableOpacity, SafeAreaView, StatusBar, Alert, useWindowDimensions, Platform } from 'react-native';
 import { BottomNavBar, NavTab } from './src/components/BottomNavBar';
+import { DesktopHeader } from './src/components/DesktopHeader';
 import { HomeScreen } from './src/screens/HomeScreen';
 import { CallsScreen } from './src/screens/CallsScreen';
 import { ChatScreen } from './src/screens/ChatScreen';
@@ -18,11 +19,13 @@ import { IncomingCallModal } from './src/screens/IncomingCallModal';
 import { PolicyModal, PolicyType } from './src/screens/PolicyModal';
 import { HelpScreen } from './src/screens/HelpScreen';
 import { ListenerOnboardingModal } from './src/screens/ListenerOnboardingModal';
-import { DeviceFrame } from './src/components/DeviceFrame';
+import { ListenerEarningsModal } from './src/screens/ListenerEarningsModal';
+import { DeviceFrame, ViewMode } from './src/components/DeviceFrame';
 import { InsufficientBalanceModal } from './src/components/InsufficientBalanceModal';
 import { ListenerProfile, WalletTransaction, Coupon, DEFAULT_COUPONS } from '@chatzie/shared';
 import { mockListeners, mockTransactions } from './src/data/mockData';
 import { THEME } from './src/theme';
+import { getApiBaseUrl } from './src/services/apiConfig';
 
 type ScreenView =
   | 'tab_home'
@@ -82,6 +85,17 @@ class ErrorBoundary extends React.Component<
 }
 
 export default function App() {
+  const { width } = useWindowDimensions();
+  const [viewMode, setViewMode] = useState<ViewMode>(() => {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      const saved = window.localStorage.getItem('chatzie_view_mode');
+      if (saved === 'mobile' || saved === 'desktop') return saved as ViewMode;
+    }
+    return 'desktop';
+  });
+  const isLargeScreen = Platform.OS === 'web' && width > 640;
+  const isDesktop = viewMode === 'desktop' && isLargeScreen;
+
   const [activeTab, setActiveTab] = useState<NavTab>('home');
   const [currentScreen, setCurrentScreen] = useState<ScreenView>('tab_home');
 
@@ -97,6 +111,39 @@ export default function App() {
   const [activeCallType, setActiveCallType] = useState<'audio' | 'video'>('audio');
   const [isListenerVerified, setIsListenerVerified] = useState<boolean>(false);
   const [showOnboardingModal, setShowOnboardingModal] = useState<boolean>(false);
+  const [showEarningsModal, setShowEarningsModal] = useState<boolean>(false);
+
+  // Live sync with backend server
+  useEffect(() => {
+    const syncWithBackend = async () => {
+      try {
+        const baseUrl = getApiBaseUrl();
+        const [listenersRes, usersRes] = await Promise.all([
+          fetch(`${baseUrl}/api/listeners`),
+          fetch(`${baseUrl}/api/admin/users`)
+        ]);
+        if (listenersRes.ok) {
+          const data = await listenersRes.json();
+          if (Array.isArray(data) && data.length > 0) {
+            setListeners(data);
+          }
+        }
+        if (usersRes.ok) {
+          const userData = await usersRes.json();
+          if (userData.users) {
+            const amit = userData.users.find((u: any) => u.id === 'u-amit');
+            if (amit && typeof amit.walletBalanceINR === 'number') {
+              setWalletBalanceINR(amit.walletBalanceINR);
+            }
+          }
+        }
+      } catch (e) {}
+    };
+
+    syncWithBackend();
+    const interval = setInterval(syncWithBackend, 4000);
+    return () => clearInterval(interval);
+  }, []);
 
   // Low balance prompt modal
   const [lowBalanceModal, setLowBalanceModal] = useState<{
@@ -185,6 +232,21 @@ export default function App() {
       createdAt: new Date().toISOString(),
     };
     setTransactions((prev) => [newTx, ...prev]);
+
+    // Notify backend to credit host chat earnings (₹0.125/text, ₹0.375/photo)
+    try {
+      const baseUrl = getApiBaseUrl();
+      fetch(`${baseUrl}/api/chat/deduct`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          callerId: 'u-amit',
+          listenerId: selectedListener.id,
+          type: amount >= 0.7 ? 'image' : 'text',
+        }),
+      }).catch(() => {});
+    } catch (e) {}
+
     return true;
   };
 
@@ -236,6 +298,23 @@ export default function App() {
     };
     setTransactions([newTx, ...transactions]);
 
+    // Notify backend to credit host earnings (₹4.50/min voice, ₹16/min video) and settle balances
+    try {
+      const baseUrl = getApiBaseUrl();
+      fetch(`${baseUrl}/api/calls/end`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          channel: `call_${selectedListener.username}`,
+          durationSeconds,
+          totalCost: cost,
+          callerId: 'u-amit',
+          listenerId: selectedListener.id,
+          callType: activeCallType,
+        }),
+      }).catch(() => {});
+    } catch (e) {}
+
     // Show Call Summary & Rating modal
     setSummaryData({
       visible: true,
@@ -274,9 +353,24 @@ export default function App() {
 
   return (
     <ErrorBoundary>
-      <DeviceFrame>
+      <DeviceFrame viewMode={viewMode} onToggleViewMode={setViewMode}>
         <SafeAreaView style={styles.safeArea}>
         <StatusBar barStyle="dark-content" backgroundColor={THEME.colors.white} />
+
+        {/* Professional Desktop Header (Only rendered in Desktop Web mode) */}
+        {isDesktop && (
+          <DesktopHeader
+            activeTab={activeTab}
+            onTabChange={handleTabChange}
+            balanceINR={walletBalanceINR}
+            onBalancePress={() => handleTabChange('wallet')}
+            onAvatarPress={() => setCurrentScreen('account')}
+            onBecomeListenerPress={() => setShowOnboardingModal(true)}
+            onEarningsPress={() => setShowEarningsModal(true)}
+            viewMode={viewMode}
+            onToggleViewMode={setViewMode}
+          />
+        )}
 
       <View style={styles.container}>
         {/* Main Tabs */}
@@ -284,6 +378,7 @@ export default function App() {
           <HomeScreen
             balanceINR={walletBalanceINR}
             listeners={listeners}
+            isDesktop={isDesktop}
             onBalancePress={() => handleTabChange('wallet')}
             onAvatarPress={() => setCurrentScreen('account')}
             onCategoryPress={() => handleTabChange('calls')}
@@ -293,6 +388,7 @@ export default function App() {
             }}
             onCallPress={handleStartCall}
             onBecomeListenerPress={() => setShowOnboardingModal(true)}
+            onEarningsPress={() => setShowEarningsModal(true)}
           />
         )}
 
@@ -300,6 +396,7 @@ export default function App() {
           <CallsScreen
             balanceINR={walletBalanceINR}
             listeners={listeners}
+            isDesktop={isDesktop}
             onBalancePress={() => handleTabChange('wallet')}
             onListenerPress={(l) => {
               setSelectedListener(l);
@@ -312,6 +409,7 @@ export default function App() {
         {currentScreen === 'tab_chat' && (
           <ChatScreen
             balanceINR={walletBalanceINR}
+            isDesktop={isDesktop}
             onBalancePress={() => handleTabChange('wallet')}
             onConversationPress={(chat) => {
               const matched = listeners.find((l) => l.name.toLowerCase().includes(chat.name.toLowerCase())) || listeners[0];
@@ -324,6 +422,7 @@ export default function App() {
         {currentScreen === 'tab_wallet' && (
           <WalletScreen
             balanceINR={walletBalanceINR}
+            isDesktop={isDesktop}
             onHistoryPress={() => setCurrentScreen('transactions')}
             onRechargeSuccess={handleRechargeSuccess}
           />
@@ -401,6 +500,7 @@ export default function App() {
             onTransactionsPress={() => setCurrentScreen('transactions')}
             onHelpPress={() => setCurrentScreen('help')}
             onBecomeListenerPress={() => setShowOnboardingModal(true)}
+            onEarningsPress={() => setShowEarningsModal(true)}
           />
         )}
 
@@ -421,8 +521,8 @@ export default function App() {
           />
         )}
 
-        {/* Global Bottom Navigation Bar (Visible across 4 primary tabs) */}
-        {['tab_home', 'tab_calls', 'tab_chat', 'tab_wallet'].includes(currentScreen) && (
+        {/* Global Bottom Navigation Bar (Visible across 4 primary tabs only in Mobile Mode) */}
+        {!isDesktop && ['tab_home', 'tab_calls', 'tab_chat', 'tab_wallet'].includes(currentScreen) && (
           <BottomNavBar
             activeTab={activeTab}
             onTabChange={handleTabChange}
@@ -441,6 +541,13 @@ export default function App() {
               'Your voice intro and PAN document have been submitted to the Admin for approval. You will receive a push notification once approved!'
             );
           }}
+        />
+
+        {/* Host Earnings & Settlements Modal */}
+        <ListenerEarningsModal
+          visible={showEarningsModal}
+          onClose={() => setShowEarningsModal(false)}
+          listener={selectedListener}
         />
 
         {/* Post-Call Summary & Rating Modal */}

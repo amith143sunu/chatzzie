@@ -2,17 +2,30 @@
   "name": "chatzie-monorepo",
   "version": "1.0.0",
   "private": true,
+  "main": "app.js",
   "workspaces": [
     "apps/*",
     "packages/*",
     "server"
   ],
   "scripts": {
+    "start": "node app.js",
+    "build": "npm --workspace=packages/shared run build && npm --workspace=server run build && npm --workspace=apps/web-admin run build && cd apps/mobile && HOME=/tmp EXPO_NO_TELEMETRY=1 npx expo export --platform web && node -e \"const fs=require('fs'); let h=fs.readFileSync('dist/index.html','utf8'); if(!h.includes('AgoraRTC_N.js')){ h=h.replace('</body>','<script src=\\\"/AgoraRTC_N.js\\\"></script></body>'); fs.writeFileSync('dist/index.html',h); }\"",
+    "build:shared": "npm --workspace=packages/shared run build",
+    "build:server": "npm --workspace=server run build",
+    "build:admin": "npm --workspace=apps/web-admin run build",
+    "build:mobile": "cd apps/mobile && HOME=/tmp EXPO_NO_TELEMETRY=1 npx expo export --platform web && node -e \"const fs=require('fs'); let h=fs.readFileSync('dist/index.html','utf8'); if(!h.includes('AgoraRTC_N.js')){ h=h.replace('</body>','<script src=\\\"/AgoraRTC_N.js\\\"></script></body>'); fs.writeFileSync('dist/index.html',h); }\"",
     "dev:mobile": "npm --workspace=apps/mobile run dev",
     "dev:admin": "npm --workspace=apps/web-admin run dev",
-    "dev:server": "npm --workspace=server run dev",
-    "build:admin": "npm --workspace=apps/web-admin run build",
-    "build:server": "npm --workspace=server run build"
+    "dev:server": "npm --workspace=server run dev"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "next": "14.1.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "socket.io": "^4.7.5"
   },
   "devDependencies": {
     "typescript": "^5.3.3"

@@ -13,6 +13,7 @@ import {
   Radio,
   Zap
 } from 'lucide-react';
+import { getApiBaseUrl } from '../apiConfig';
 
 interface PushHistory {
   id: string;
@@ -60,13 +61,6 @@ export default function PushCenterPage() {
     }, 3500);
   };
 
-  const getBackendHost = () => {
-    if (typeof window !== 'undefined' && window.location.hostname) {
-      return window.location.hostname;
-    }
-    return 'localhost';
-  };
-
   const QUICK_TEMPLATES = [
     {
       title: 'Free ₹20 Call Bonus Added!',
@@ -103,7 +97,8 @@ export default function PushCenterPage() {
     setIsSending(true);
 
     try {
-      await fetch(`http://${getBackendHost()}:8682/api/admin/push-notification`, {
+      const baseUrl = getApiBaseUrl();
+      await fetch(`${baseUrl}/api/admin/push-notification`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

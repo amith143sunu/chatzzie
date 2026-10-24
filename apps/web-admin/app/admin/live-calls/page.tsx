@@ -15,6 +15,7 @@ import {
   CheckCircle2,
   AlertTriangle
 } from 'lucide-react';
+import { getApiBaseUrl } from '../apiConfig';
 
 interface ActiveSession {
   id: string;
@@ -67,19 +68,13 @@ export default function LiveCallsPage() {
     }, 3500);
   };
 
-  const getBackendHost = () => {
-    if (typeof window !== 'undefined' && window.location.hostname) {
-      return window.location.hostname;
-    }
-    return 'localhost';
-  };
-
   const fetchLiveSessions = async () => {
     try {
-      const res = await fetch(`http://${getBackendHost()}:8682/api/admin/live-sessions`);
+      const baseUrl = getApiBaseUrl();
+      const res = await fetch(`${baseUrl}/api/admin/live-sessions`);
       if (res.ok) {
         const data = await res.json();
-        if (data.activeSessions && data.activeSessions.length > 0) {
+        if (data.activeSessions) {
           setSessions(data.activeSessions);
         }
       }
@@ -95,7 +90,8 @@ export default function LiveCallsPage() {
 
   const handleTerminate = async (sessionId: string, channelName: string) => {
     try {
-      await fetch(`http://${getBackendHost()}:8682/api/admin/live-sessions/terminate`, {
+      const baseUrl = getApiBaseUrl();
+      await fetch(`${baseUrl}/api/admin/live-sessions/terminate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ sessionId }),
@@ -112,7 +108,8 @@ export default function LiveCallsPage() {
   const handleSimulate = async (type: 'audio' | 'video') => {
     setIsLoading(true);
     try {
-      const res = await fetch(`http://${getBackendHost()}:8682/api/admin/live-sessions/simulate`, {
+      const baseUrl = getApiBaseUrl();
+      const res = await fetch(`${baseUrl}/api/admin/live-sessions/simulate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ type }),

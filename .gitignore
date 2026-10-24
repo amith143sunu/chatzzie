@@ -4,15 +4,12 @@ node_modules/
 .pnp.js
 
 # Production & Build outputs
-dist/
-build/
-.next/
-out/
-apps/web-admin/.next/
+/dist/
+/build/
+/.next/
+/out/
+apps/web-admin/.next/cache/
 apps/mobile/.expo/
-apps/mobile/dist/
-packages/shared/dist/
-server/dist/
 
 # Logs
 *.log

@@ -11,7 +11,10 @@ import {
   CATEGORIES,
   CallSession,
   WalletTransaction,
-  PushNotificationPayload
+  PushNotificationPayload,
+  ListenerProfile,
+  PayoutRequest,
+  ListenerEarningsSummary
 } from '@chatzie/shared';
 import {
   mockListeners,
@@ -20,8 +23,10 @@ import {
   mockPayouts,
   mockPushNotifications,
   mockReports,
+  mockOrders,
   ModerationReport
 } from './db';
+import { paymentService } from './services/paymentService';
 
 const app = express();
 const server = http.createServer(app);
@@ -248,11 +253,50 @@ app.post('/api/calls/initiate', (req, res) => {
   res.json(callSession);
 });
 
+// Live WebRTC channels state for Admin Backoffice
+export interface LiveSession {
+  id: string;
+  channel: string;
+  listener: string;
+  caller: string;
+  type: 'audio' | 'video';
+  startedMinutesAgo: number;
+  ratePerMinINR: number;
+  coinsBurned: number;
+  status: 'active' | 'terminated';
+}
+
+export let activeLiveSessions: LiveSession[] = [
+  {
+    id: 'sess-1',
+    channel: 'call_sonika_912',
+    listener: 'Sonika Verma (@sonika_912)',
+    caller: 'Amit (u-amit)',
+    type: 'audio',
+    startedMinutesAgo: 3,
+    ratePerMinINR: 9,
+    coinsBurned: 270,
+    status: 'active',
+  },
+  {
+    id: 'sess-2',
+    channel: 'call_jyoti__1',
+    listener: 'Jyoti Sharma (@jyoti__1)',
+    caller: 'Rohan Sharma (u-rohan)',
+    type: 'video',
+    startedMinutesAgo: 7,
+    ratePerMinINR: 30,
+    coinsBurned: 2100,
+    status: 'active',
+  }
+];
+
 // Direct token generation endpoint for webRTC clients & testbeds
 app.get('/api/calls/token', (req, res) => {
   const channel = (req.query.channel as string) || 'chatzie_room_1';
   const uid = Number(req.query.uid) || Math.floor(1000 + Math.random() * 9000);
   const privilegeExpireTime = Math.floor(Date.now() / 1000) + 3600;
+  const callType = req.query.type === 'video' ? 'video' : 'audio';
 
   try {
     const token = RtcTokenBuilder.buildTokenWithUid(
@@ -263,6 +307,24 @@ app.get('/api/calls/token', (req, res) => {
       RtcRole.PUBLISHER,
       privilegeExpireTime
     );
+
+    // Track active live session in admin backoffice
+    const existing = activeLiveSessions.find(s => s.channel === channel);
+    if (!existing) {
+      const newSess: LiveSession = {
+        id: `sess-${Date.now()}`,
+        channel,
+        caller: 'Amit (u-amit)',
+        listener: 'Host (' + channel.replace('call_', '@') + ')',
+        type: callType,
+        startedMinutesAgo: 0,
+        ratePerMinINR: callType === 'video' ? 30 : 9,
+        coinsBurned: 0,
+        status: 'active',
+      };
+      activeLiveSessions.unshift(newSess);
+      io.emit('live_sessions_updated', activeLiveSessions);
+    }
 
     res.json({
       success: true,
@@ -277,20 +339,245 @@ app.get('/api/calls/token', (req, res) => {
   }
 });
 
+// Start call session
+app.post('/api/calls/start', (req, res) => {
+  const { channel, caller, listener, type, ratePerMinINR } = req.body;
+  const existing = activeLiveSessions.find(s => s.channel === channel);
+  if (!existing) {
+    const newSess: LiveSession = {
+      id: `sess-${Date.now()}`,
+      channel: channel || `call_${Date.now()}`,
+      caller: caller || 'Amit (u-amit)',
+      listener: listener || 'Host',
+      type: type === 'video' ? 'video' : 'audio',
+      startedMinutesAgo: 0,
+      ratePerMinINR: Number(ratePerMinINR) || (type === 'video' ? 30 : 9),
+      coinsBurned: 0,
+      status: 'active',
+    };
+    activeLiveSessions.unshift(newSess);
+    io.emit('live_sessions_updated', activeLiveSessions);
+  }
+  res.json({ success: true, activeSessions: activeLiveSessions });
+});
+
+// End call session with real-time billing and planned listener earnings distribution
+// Audio: ₹9/min caller -> ₹4.50/min listener | Video: ₹30/min caller -> ₹16/min listener
+app.post('/api/calls/end', (req, res) => {
+  const { channel, durationSeconds, callerId = 'u-amit', listenerId, callType = 'audio' } = req.body;
+  const billedMinutes = Math.max(1, Math.ceil((Number(durationSeconds) || 0) / 60));
+  const ratePerMin = callType === 'video' ? 30.0 : 9.0;
+  const callerCharged = Number((billedMinutes * ratePerMin).toFixed(2));
+  const hostRatePerMin = callType === 'video' ? 16.0 : 4.5;
+  const hostEarned = Number((billedMinutes * hostRatePerMin).toFixed(2));
+  const platformRetained = Number((callerCharged - hostEarned).toFixed(2));
+
+  // 1. Terminate active session in admin live monitor
+  const sess = activeLiveSessions.find(s => s.channel === channel);
+  if (sess) {
+    sess.status = 'terminated';
+    sess.coinsBurned = callerCharged * 10;
+    io.emit('live_sessions_updated', activeLiveSessions);
+  }
+
+  // 2. Caller deduction
+  const caller = mockUsers.find(u => u.id === callerId) || mockUsers[0];
+  if (caller) {
+    caller.walletBalanceINR = Math.max(0, Number((caller.walletBalanceINR - callerCharged).toFixed(2)));
+    const callerTx: WalletTransaction = {
+      id: `tx-caller-${Date.now()}`,
+      userId: caller.id,
+      type: 'call_deduction',
+      amountINR: -callerCharged,
+      status: 'completed',
+      description: `${callType === 'video' ? 'Video' : 'Voice'} Call (${billedMinutes} min @ ₹${ratePerMin}/min)`,
+      referenceId: channel || `call_${Date.now()}`,
+      createdAt: new Date().toISOString(),
+    };
+    mockTransactions.unshift(callerTx);
+    io.emit('user_balance_updated', {
+      userId: caller.id,
+      newBalanceINR: caller.walletBalanceINR,
+      deductedINR: callerCharged,
+    });
+  }
+
+  // 3. Listener earning credit according to planned structure
+  const listener = mockListeners.find(l => l.id === listenerId || l.username === (channel || '').replace('call_', '')) || mockListeners[0];
+  if (listener) {
+    listener.earningsBalanceINR = Number(((listener.earningsBalanceINR || 0) + hostEarned).toFixed(2));
+    listener.totalEarnedINR = Number(((listener.totalEarnedINR || 0) + hostEarned).toFixed(2));
+    const hostTx: WalletTransaction = {
+      id: `tx-host-${Date.now()}`,
+      userId: listener.userId,
+      type: 'call_deduction', // using transaction schema
+      amountINR: hostEarned,
+      status: 'completed',
+      description: `${callType === 'video' ? 'Video' : 'Voice'} Host Earning (${billedMinutes} min @ ₹${hostRatePerMin}/min)`,
+      referenceId: channel || `call_${Date.now()}`,
+      createdAt: new Date().toISOString(),
+    };
+    mockTransactions.unshift(hostTx);
+    io.emit('listener_earnings_updated', {
+      listenerId: listener.id,
+      earningsBalanceINR: listener.earningsBalanceINR,
+      totalEarnedINR: listener.totalEarnedINR,
+      earnedThisCall: hostEarned,
+    });
+  }
+
+  res.json({
+    success: true,
+    billedMinutes,
+    callerCharged,
+    hostEarned,
+    platformRetained,
+    callerNewBalance: caller?.walletBalanceINR ?? 0,
+    hostNewEarnings: listener?.earningsBalanceINR ?? 0,
+    activeSessions: activeLiveSessions,
+  });
+});
+
+// Chat message deduction: ₹0.25 text (listener gets ₹0.125), ₹0.75 image (listener gets ₹0.375)
+app.post('/api/chat/deduct', (req, res) => {
+  const { callerId = 'u-amit', listenerId, type = 'text' } = req.body;
+  const callerCharged = type === 'image' ? 0.75 : 0.25;
+  const hostEarned = type === 'image' ? 0.375 : 0.125;
+  const platformRetained = Number((callerCharged - hostEarned).toFixed(3));
+
+  const caller = mockUsers.find(u => u.id === callerId) || mockUsers[0];
+  if (caller) {
+    if (caller.walletBalanceINR < callerCharged) {
+      return res.status(402).json({ error: 'Insufficient balance' });
+    }
+    caller.walletBalanceINR = Number((caller.walletBalanceINR - callerCharged).toFixed(2));
+    mockTransactions.unshift({
+      id: `tx-chat-${Date.now()}`,
+      userId: caller.id,
+      type: 'call_deduction',
+      amountINR: -callerCharged,
+      status: 'completed',
+      description: `Chat ${type === 'image' ? 'Photo' : 'Message'} Sent`,
+      referenceId: `msg_${Date.now()}`,
+      createdAt: new Date().toISOString(),
+    });
+    io.emit('user_balance_updated', { userId: caller.id, newBalanceINR: caller.walletBalanceINR });
+  }
+
+  const listener = mockListeners.find(l => l.id === listenerId) || mockListeners[0];
+  if (listener) {
+    listener.earningsBalanceINR = Number(((listener.earningsBalanceINR || 0) + hostEarned).toFixed(3));
+    listener.totalEarnedINR = Number(((listener.totalEarnedINR || 0) + hostEarned).toFixed(3));
+    io.emit('listener_earnings_updated', {
+      listenerId: listener.id,
+      earningsBalanceINR: listener.earningsBalanceINR,
+      totalEarnedINR: listener.totalEarnedINR,
+      earnedThisChat: hostEarned,
+    });
+  }
+
+  res.json({
+    success: true,
+    callerCharged,
+    hostEarned,
+    platformRetained,
+    callerNewBalance: caller?.walletBalanceINR ?? 0,
+    hostNewEarnings: listener?.earningsBalanceINR ?? 0,
+  });
+});
+
+// Public listeners endpoint for mobile & web
+app.get('/api/listeners', (req, res) => {
+  res.json(mockListeners);
+});
+
+// Submit KYC from mobile app
+app.post('/api/listeners/kyc', (req, res) => {
+  const { name, username, phone, languages, bio, panNumber, upiId, isVideoEnabled } = req.body;
+  const newApp: KYCApplication = {
+    id: `app-${Date.now()}`,
+    name: name || 'Applicant Host',
+    username: username || `user_${Date.now().toString().slice(-4)}`,
+    phone: phone || '9876543210',
+    languages: Array.isArray(languages) ? languages : ['Hindi'],
+    ratePerMinINR: 9,
+    isVideoEnabled: isVideoEnabled ?? false,
+    bio: bio || 'Compassionate listener eager to connect and support.',
+    panNumber: panNumber || 'ABCDE1234F',
+    upiId: upiId || `${username || 'user'}@upi`,
+    voiceBioDurationSeconds: 20,
+    appliedAt: 'Just now',
+    avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80',
+  };
+  pendingKycApplications.unshift(newApp);
+  io.emit('kyc_application_received', newApp);
+  res.json({ success: true, application: newApp });
+});
+
 // -------------------------------------------------------------------
 // 5. ADMIN BACKOFFICE ENDPOINTS (/api/admin/*)
 // -------------------------------------------------------------------
 
+export interface KYCApplication {
+  id: string;
+  name: string;
+  username: string;
+  phone: string;
+  languages: string[];
+  ratePerMinINR: number;
+  isVideoEnabled: boolean;
+  bio: string;
+  panNumber: string;
+  voiceBioDurationSeconds: number;
+  appliedAt: string;
+  avatarUrl?: string;
+  upiId?: string;
+}
+
+let pendingKycApplications: KYCApplication[] = [
+  {
+    id: 'app-1',
+    name: 'Pooja Kashyap',
+    username: 'pooja_talks',
+    phone: '9876543210',
+    languages: ['Hindi', 'English'],
+    ratePerMinINR: 9,
+    isVideoEnabled: true,
+    bio: 'Post-graduate in psychology with 2 years of active empathetic counseling experience.',
+    panNumber: 'ABCDE9876Z',
+    voiceBioDurationSeconds: 24,
+    appliedAt: '2 hours ago',
+    avatarUrl: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=400&q=80',
+    upiId: 'pooja@okhdfcbank'
+  },
+  {
+    id: 'app-2',
+    name: 'Riya Malhotra',
+    username: 'riya_vibes',
+    phone: '9123456780',
+    languages: ['Hindi', 'Punjabi'],
+    ratePerMinINR: 9,
+    isVideoEnabled: false,
+    bio: 'Friendly conversationalist, passionate about music, daily talks, and easing evening stress.',
+    panNumber: 'MNOPQ5432K',
+    voiceBioDurationSeconds: 19,
+    appliedAt: 'Yesterday',
+    avatarUrl: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=400&q=80',
+    upiId: 'riya@okaxis'
+  }
+];
+
 app.get('/api/admin/dashboard', (req, res) => {
+  const liveCount = activeLiveSessions.filter(s => s.status === 'active').length;
   const totalRechargeVolume = mockTransactions
     .filter(t => t.type === 'recharge' && t.status === 'completed')
     .reduce((sum, t) => sum + t.amountINR, 0);
 
   res.json({
-    activeCallsCount: 8,
+    activeCallsCount: liveCount,
     totalTalkersCount: mockUsers.length + 1420,
     totalVerifiedListeners: mockListeners.length,
-    pendingKYCCount: 3,
+    pendingKYCCount: pendingKycApplications.length,
     totalRechargeVolumeINR: totalRechargeVolume + 158200,
     pendingPayoutsVolumeINR: mockPayouts.filter(p => p.status === 'pending').reduce((sum, p) => sum + p.amountINR, 0),
     topLanguages: TOP_LANGUAGES.slice(0, 5),
@@ -298,24 +585,79 @@ app.get('/api/admin/dashboard', (req, res) => {
 });
 
 app.get('/api/admin/kyc-queue', (req, res) => {
-  const pending = mockListeners.filter(l => l.kycStatus === 'pending');
-  res.json(pending);
+  res.json({
+    success: true,
+    pendingApplications: pendingKycApplications
+  });
 });
 
 app.post('/api/admin/kyc-action', (req, res) => {
   const { listenerId, action, rejectionReason } = req.body;
-  const listener = mockListeners.find(l => l.id === listenerId);
-  if (!listener) return res.status(404).json({ error: 'Listener not found' });
+  const appIndex = pendingKycApplications.findIndex(a => a.id === listenerId);
 
   if (action === 'approve') {
-    listener.kycStatus = 'verified';
-    listener.isAvailableForCalls = true;
+    if (appIndex !== -1) {
+      const app = pendingKycApplications[appIndex];
+      pendingKycApplications.splice(appIndex, 1);
+      const newListener: ListenerProfile = {
+        id: `list-${Date.now()}`,
+        userId: `u-${Date.now()}`,
+        username: app.username,
+        name: app.name,
+        avatarUrl: app.avatarUrl || 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=400&q=80',
+        bio: app.bio,
+        languages: app.languages,
+        callRatePerMinINR: app.ratePerMinINR || 9,
+        isVideoEnabled: app.isVideoEnabled,
+        status: 'online',
+        rating: 5.0,
+        totalReviews: 0,
+        followersCount: 0,
+        giftsCount: 0,
+        voiceBioUrl: 'https://actions.google.com/sounds/v1/speech/voice_intro_1.mp3',
+        voiceBioDurationSeconds: app.voiceBioDurationSeconds,
+        kycStatus: 'verified',
+        panNumber: app.panNumber,
+        upiId: app.upiId || `${app.username}@upi`,
+        isAvailableForCalls: true,
+      };
+      mockListeners.unshift(newListener);
+      io.emit('listeners_updated', mockListeners);
+      return res.json({
+        success: true,
+        action: 'approved',
+        listener: newListener,
+        listeners: mockListeners,
+        pendingApplications: pendingKycApplications
+      });
+    }
   } else {
-    listener.kycStatus = 'rejected';
-    listener.isAvailableForCalls = false;
+    // reject
+    if (appIndex !== -1) {
+      pendingKycApplications.splice(appIndex, 1);
+    }
+    return res.json({
+      success: true,
+      action: 'rejected',
+      pendingApplications: pendingKycApplications
+    });
   }
 
-  res.json({ success: true, listener });
+  // Also check if already in mockListeners for status update
+  const listener = mockListeners.find(l => l.id === listenerId);
+  if (listener) {
+    listener.kycStatus = action === 'approve' ? 'verified' : 'rejected';
+    listener.isAvailableForCalls = action === 'approve';
+    io.emit('listeners_updated', mockListeners);
+    return res.json({
+      success: true,
+      listener,
+      listeners: mockListeners,
+      pendingApplications: pendingKycApplications
+    });
+  }
+
+  res.status(404).json({ error: 'Application or listener not found' });
 });
 
 app.post('/api/admin/push-notification', (req, res) => {
@@ -345,62 +687,254 @@ app.get('/api/admin/push-history', (req, res) => {
   res.json(mockPushNotifications);
 });
 
+// Payouts listing for admin backoffice
 app.get('/api/admin/payouts', (req, res) => {
   res.json(mockPayouts);
 });
 
-app.post('/api/admin/payout-action', (req, res) => {
-  const { payoutId, action } = req.body;
+// Admin approves or rejects payout (executes payout via RazorpayX or instant simulated settlement)
+app.post('/api/admin/payout-action', async (req, res) => {
+  const { payoutId, action, reason } = req.body;
   const payout = mockPayouts.find(p => p.id === payoutId);
   if (!payout) return res.status(404).json({ error: 'Payout not found' });
 
   if (action === 'approve') {
+    const listener = mockListeners.find(l => l.id === payout.listenerId);
+    
+    // Execute payout via payment service
+    const result = await paymentService.executePayout({
+      payoutId: payout.id,
+      listenerId: payout.listenerId,
+      listenerName: payout.listenerName,
+      amountINR: payout.amountINR,
+      upiId: payout.upiId,
+      bankAccount: payout.bankAccount,
+      bankIFSC: payout.bankIFSC,
+    });
+
     payout.status = 'approved';
     payout.processedAt = new Date().toISOString();
+    payout.utrNumber = result.utrNumber;
+
+    if (listener) {
+      listener.earningsBalanceINR = Math.max(0, Number(((listener.earningsBalanceINR || 0) - payout.amountINR).toFixed(2)));
+      io.emit('listener_earnings_updated', {
+        listenerId: listener.id,
+        earningsBalanceINR: listener.earningsBalanceINR,
+        totalEarnedINR: listener.totalEarnedINR,
+      });
+    }
+
+    io.emit('payout_approved', payout);
+    return res.json({ success: true, payout, message: result.message });
   } else {
     payout.status = 'rejected';
+    payout.rejectionReason = reason || 'Verification pending';
+    io.emit('payout_rejected', payout);
+    return res.json({ success: true, payout });
   }
-
-  res.json({ success: true, payout });
 });
 
-// Live WebRTC channels state for Admin Backoffice
-interface LiveSession {
-  id: string;
-  channel: string;
-  listener: string;
-  caller: string;
-  type: 'audio' | 'video';
-  startedMinutesAgo: number;
-  ratePerMinINR: number;
-  coinsBurned: number;
-  status: 'active' | 'terminated';
-}
+// -------------------------------------------------------------------
+// 6. PAYMENT GATEWAY CHANNELS & ORDER PROCESSING (/api/payments/*)
+// -------------------------------------------------------------------
 
-let activeLiveSessions: LiveSession[] = [
-  {
-    id: 'sess-1',
-    channel: 'call_sonika_912',
-    listener: 'Sonika Verma (@sonika_912)',
-    caller: 'Amit (u-amit)',
-    type: 'audio',
-    startedMinutesAgo: 3,
-    ratePerMinINR: 9,
-    coinsBurned: 270,
-    status: 'active',
-  },
-  {
-    id: 'sess-2',
-    channel: 'call_jyoti__1',
-    listener: 'Jyoti Sharma (@jyoti__1)',
-    caller: 'Rohan Sharma (u-rohan)',
-    type: 'video',
-    startedMinutesAgo: 7,
-    ratePerMinINR: 30,
-    coinsBurned: 2100,
-    status: 'active',
+// Public payment gateway client config (keys, provider, currency)
+app.get('/api/payments/config', (req, res) => {
+  res.json(paymentService.getClientConfig());
+});
+
+// Create payment order (works with live Razorpay or seamless sandbox fallback)
+app.post('/api/payments/create-order', async (req, res) => {
+  try {
+    const { amountINR, cashbackINR, packageId, userId = 'u-amit', notes } = req.body;
+    if (!amountINR || Number(amountINR) <= 0) {
+      return res.status(400).json({ error: 'Valid amount is required' });
+    }
+
+    const order = await paymentService.createOrder({
+      userId,
+      amountINR: Number(amountINR),
+      cashbackINR: Number(cashbackINR) || 0,
+      packageId,
+      notes,
+    });
+
+    mockOrders.unshift(order);
+    res.json({ success: true, order });
+  } catch (err: any) {
+    res.status(500).json({ error: 'Failed to create payment order', details: err.message });
   }
-];
+});
+
+// Verify payment & credit wallet instantly
+app.post('/api/payments/verify', (req, res) => {
+  try {
+    const {
+      orderId,
+      gatewayOrderId,
+      gatewayPaymentId,
+      gatewaySignature,
+      amountINR,
+      cashbackINR = 0,
+      userId = 'u-amit',
+      paymentMethod = 'upi',
+    } = req.body;
+
+    const verification = paymentService.verifyPayment({
+      orderId,
+      gatewayOrderId,
+      gatewayPaymentId,
+      gatewaySignature,
+      amountINR: Number(amountINR),
+      cashbackINR: Number(cashbackINR),
+      userId,
+    });
+
+    if (!verification.verified) {
+      return res.status(400).json({ success: false, error: verification.message });
+    }
+
+    // Update order status
+    const order = mockOrders.find(o => o.orderId === orderId);
+    if (order) {
+      order.status = 'paid';
+    }
+
+    // Credit user wallet
+    const user = mockUsers.find(u => u.id === userId) || mockUsers[0];
+    const baseAmount = Number(amountINR);
+    const bonusCashback = Number(cashbackINR) || 0;
+    const totalCredit = Number((baseAmount + bonusCashback).toFixed(2));
+
+    user.walletBalanceINR = Number((user.walletBalanceINR + totalCredit).toFixed(2));
+
+    // Log recharge transaction
+    const rechargeTx: WalletTransaction = {
+      id: `tx-rech-${Date.now()}`,
+      userId: user.id,
+      type: 'recharge',
+      amountINR: baseAmount,
+      cashbackINR: bonusCashback,
+      status: 'completed',
+      description: `Wallet Recharge ₹${baseAmount} via ${paymentMethod.toUpperCase()}`,
+      referenceId: gatewayPaymentId || orderId || `pay_${Date.now()}`,
+      createdAt: new Date().toISOString(),
+    };
+    mockTransactions.unshift(rechargeTx);
+
+    // If cashback earned, log separate bonus credit
+    if (bonusCashback > 0) {
+      const cbTx: WalletTransaction = {
+        id: `tx-cb-${Date.now()}`,
+        userId: user.id,
+        type: 'cashback_earned',
+        amountINR: bonusCashback,
+        cashbackINR: bonusCashback,
+        status: 'completed',
+        description: `Promo Cashback Bonus (+₹${bonusCashback})`,
+        referenceId: `cb_${Date.now()}`,
+        createdAt: new Date().toISOString(),
+      };
+      mockTransactions.unshift(cbTx);
+    }
+
+    // Broadcast live balance update
+    io.emit('user_balance_updated', {
+      userId: user.id,
+      newBalanceINR: user.walletBalanceINR,
+      creditedINR: totalCredit,
+    });
+
+    res.json({
+      success: true,
+      message: 'Payment verified and wallet credited successfully!',
+      newBalanceINR: user.walletBalanceINR,
+      transaction: rechargeTx,
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: 'Payment verification failed', details: err.message });
+  }
+});
+
+// Gateway Webhook (For live Razorpay/Cashfree asynchronous payment confirmation)
+app.post('/api/payments/webhook', (req, res) => {
+  console.log('[Payment Gateway Webhook received]:', req.body?.event || 'webhook');
+  res.json({ status: 'ok' });
+});
+
+// -------------------------------------------------------------------
+// 7. LISTENER EARNINGS & WITHDRAWAL PAYOUTS
+// -------------------------------------------------------------------
+
+// Get listener earnings summary
+app.get('/api/listeners/:id/earnings', (req, res) => {
+  const listener = mockListeners.find(l => l.id === req.params.id || l.username === req.params.id) || mockListeners[0];
+  const listenerPayouts = mockPayouts.filter(p => p.listenerId === listener.id);
+  const totalWithdrawn = listenerPayouts
+    .filter(p => p.status === 'approved')
+    .reduce((sum, p) => sum + p.amountINR, 0);
+  const pendingPayout = listenerPayouts
+    .filter(p => p.status === 'pending' || p.status === 'processing')
+    .reduce((sum, p) => sum + p.amountINR, 0);
+
+  const earningsSummary: ListenerEarningsSummary = {
+    listenerId: listener.id,
+    listenerName: listener.name,
+    totalEarnedINR: listener.totalEarnedINR || 8420.00,
+    availableBalanceINR: listener.earningsBalanceINR || 2340.00,
+    totalWithdrawnINR: totalWithdrawn,
+    pendingPayoutINR: pendingPayout,
+    totalAudioMinutes: Math.round(((listener.totalEarnedINR || 8420) * 0.7) / 4.5),
+    totalVideoMinutes: Math.round(((listener.totalEarnedINR || 8420) * 0.3) / 16.0),
+    totalChatMessages: 124,
+  };
+
+  res.json({
+    success: true,
+    earnings: earningsSummary,
+    payoutHistory: listenerPayouts,
+    registeredUPI: listener.upiId,
+  });
+});
+
+// Host requests withdrawal to UPI or Bank Account
+app.post('/api/payouts/request', (req, res) => {
+  const { listenerId, amountINR, upiId, bankAccount, bankIFSC } = req.body;
+  const listener = mockListeners.find(l => l.id === listenerId) || mockListeners[0];
+  const amount = Number(amountINR);
+
+  if (!amount || amount < 200) {
+    return res.status(400).json({ error: 'Minimum withdrawal amount is ₹200' });
+  }
+
+  const currentAvailable = listener.earningsBalanceINR || 0;
+  if (amount > currentAvailable) {
+    return res.status(400).json({ error: `Insufficient earnings balance. Available: ₹${currentAvailable.toFixed(2)}` });
+  }
+
+  const newPayout: PayoutRequest = {
+    id: `po-${Date.now()}`,
+    listenerId: listener.id,
+    listenerName: listener.name,
+    amountINR: amount,
+    upiId: upiId || listener.upiId || 'host@upi',
+    bankAccount,
+    bankIFSC,
+    status: 'pending',
+    requestedAt: new Date().toISOString(),
+  };
+
+  mockPayouts.unshift(newPayout);
+  io.emit('payout_requested', newPayout);
+
+  res.json({
+    success: true,
+    message: `Withdrawal request for ₹${amount} submitted for admin settlement.`,
+    payout: newPayout,
+    remainingBalanceINR: currentAvailable,
+  });
+});
 
 // Universal Platform Pricing State
 let platformPricingSettings = {
@@ -509,6 +1043,8 @@ app.post('/api/admin/users/adjust-balance', (req, res) => {
   };
   mockTransactions.unshift(newTx);
 
+  io.emit('user_balance_updated', { userId, newBalanceINR: user.walletBalanceINR, deltaINR: Number(deltaINR) });
+
   res.json({ success: true, user, transaction: newTx });
 });
 
@@ -516,6 +1052,7 @@ app.post('/api/admin/users/:id/ban', (req, res) => {
   const user = mockUsers.find(u => u.id === req.params.id);
   if (!user) return res.status(404).json({ error: 'User not found' });
   user.isBanned = !user.isBanned;
+  io.emit('user_banned', { userId: req.params.id, isBanned: user.isBanned });
   res.json({ success: true, isBanned: user.isBanned, user });
 });
 
@@ -529,6 +1066,7 @@ app.post('/api/admin/listeners/:id/tariff', (req, res) => {
   const listener = mockListeners.find(l => l.id === req.params.id);
   if (!listener) return res.status(404).json({ error: 'Listener not found' });
   listener.callRatePerMinINR = Number(ratePerMinINR);
+  io.emit('listeners_updated', mockListeners);
   res.json({ success: true, listener });
 });
 
@@ -538,6 +1076,7 @@ app.post('/api/admin/listeners/:id/suspend', (req, res) => {
   const isSuspended = !listener.isAvailableForCalls;
   listener.isAvailableForCalls = isSuspended;
   listener.status = isSuspended ? 'online' : 'offline';
+  io.emit('listeners_updated', mockListeners);
   res.json({ success: true, isSuspended: !listener.isAvailableForCalls, listener });
 });
 
@@ -569,6 +1108,8 @@ app.post('/api/admin/pricing', (req, res) => {
   if (chatTextMessageRateINR !== undefined) platformPricingSettings.chatTextMessageRateINR = Number(chatTextMessageRateINR);
   if (chatImageMessageRateINR !== undefined) platformPricingSettings.chatImageMessageRateINR = Number(chatImageMessageRateINR);
   if (platformCommissionPercent !== undefined) platformPricingSettings.platformCommissionPercent = Number(platformCommissionPercent);
+
+  io.emit('pricing_updated', platformPricingSettings);
 
   res.json({ success: true, pricing: platformPricingSettings });
 });
@@ -604,6 +1145,10 @@ io.on('connection', (socket) => {
   });
 });
 
-server.listen(Number(PORT), () => {
-  console.log(`Chatzie Backend Server running on http://localhost:${PORT} and http://127.0.0.1:${PORT}`);
-});
+export { app, server, io };
+
+if (require.main === module) {
+  server.listen(Number(PORT), () => {
+    console.log(`Chatzie Backend Server running on http://localhost:${PORT} and http://127.0.0.1:${PORT}`);
+  });
+}

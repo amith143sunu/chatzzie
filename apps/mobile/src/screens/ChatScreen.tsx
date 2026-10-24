@@ -16,12 +16,14 @@ interface ChatScreenProps {
   balanceINR: number;
   onBalancePress: () => void;
   onConversationPress: (conversation: any) => void;
+  isDesktop?: boolean;
 }
 
 export const ChatScreen: React.FC<ChatScreenProps> = ({
   balanceINR,
   onBalancePress,
   onConversationPress,
+  isDesktop = false,
 }) => {
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -94,11 +96,22 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
 
   return (
     <View style={styles.container}>
-      <HeaderBar
-        title="Chat"
-        balanceINR={balanceINR}
-        onBalancePress={onBalancePress}
-      />
+      {!isDesktop && (
+        <HeaderBar
+          title="Chat"
+          balanceINR={balanceINR}
+          onBalancePress={onBalancePress}
+        />
+      )}
+
+      {isDesktop && (
+        <View style={styles.desktopChatHeader}>
+          <Text style={styles.desktopChatTitle}>Messages & Conversations</Text>
+          <Text style={styles.desktopChatSub}>
+            Private 1:1 chat with verified hosts • ₹0.25/text • ₹0.75/photo
+          </Text>
+        </View>
+      )}
 
       {/* Notifications Warning Banner */}
       {!notificationsEnabled && (
@@ -290,5 +303,23 @@ const styles = StyleSheet.create({
     color: THEME.colors.white,
     fontSize: 11,
     fontWeight: '800',
-  }
+  },
+  desktopChatHeader: {
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+  },
+  desktopChatTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#0F172A',
+    letterSpacing: -0.3,
+  },
+  desktopChatSub: {
+    fontSize: 13,
+    color: '#64748B',
+    marginTop: 4,
+  },
 });

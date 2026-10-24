@@ -39,6 +39,8 @@ export interface ListenerProfile {
   bankAccountNumber?: string;
   bankIFSC?: string;
   isAvailableForCalls: boolean;
+  earningsBalanceINR?: number;
+  totalEarnedINR?: number;
 }
 
 export type CallType = 'audio' | 'video';
@@ -133,4 +135,44 @@ export interface PayoutRequest {
   requestedAt: string;
   processedAt?: string;
   rejectionReason?: string;
+  utrNumber?: string;
+}
+
+export type PaymentGatewayProvider = 'razorpay' | 'cashfree' | 'stripe' | 'mock';
+
+export interface PaymentOrder {
+  orderId: string;
+  provider: PaymentGatewayProvider;
+  amountINR: number;
+  currency: string;
+  userId: string;
+  status: 'created' | 'paid' | 'failed';
+  gatewayOrderId?: string;
+  gatewayKeyId?: string;
+  cashbackINR?: number;
+  notes?: Record<string, any>;
+  createdAt: string;
+}
+
+export interface PaymentVerificationRequest {
+  orderId: string;
+  gatewayOrderId?: string;
+  gatewayPaymentId?: string;
+  gatewaySignature?: string;
+  amountINR: number;
+  cashbackINR?: number;
+  userId: string;
+  paymentMethod?: 'upi' | 'card' | 'netbanking' | 'wallet';
+}
+
+export interface ListenerEarningsSummary {
+  listenerId: string;
+  listenerName: string;
+  totalEarnedINR: number;
+  availableBalanceINR: number;
+  totalWithdrawnINR: number;
+  pendingPayoutINR: number;
+  totalAudioMinutes: number;
+  totalVideoMinutes: number;
+  totalChatMessages: number;
 }

@@ -21,6 +21,7 @@ import {
   AlertCircle
 } from 'lucide-react';
 import { ListenerProfile } from '@chatzie/shared';
+import { getApiBaseUrl } from '../apiConfig';
 
 const INITIAL_LISTENERS: ListenerProfile[] = [
   {
@@ -123,47 +124,37 @@ export default function ListenersKYCPage() {
 
   const audioCtxRef = useRef<any>(null);
 
-  const [pendingApplications, setPendingApplications] = useState([
-    {
-      id: 'app-1',
-      name: 'Pooja Kashyap',
-      username: 'pooja_talks',
-      phone: '9876543210',
-      languages: ['Hindi', 'English'],
-      ratePerMinINR: 9,
-      isVideoEnabled: true,
-      bio: 'Post-graduate in psychology with 2 years of active empathetic counseling experience.',
-      panNumber: 'ABCDE9876Z',
-      voiceBioDurationSeconds: 24,
-      appliedAt: '2 hours ago',
-    },
-    {
-      id: 'app-2',
-      name: 'Riya Malhotra',
-      username: 'riya_vibes',
-      phone: '9123456780',
-      languages: ['Hindi', 'Punjabi'],
-      ratePerMinINR: 9,
-      isVideoEnabled: false,
-      bio: 'Friendly conversationalist, passionate about music, daily talks, and easing evening stress.',
-      panNumber: 'MNOPQ5432K',
-      voiceBioDurationSeconds: 19,
-      appliedAt: 'Yesterday',
-    }
-  ]);
+  const [pendingApplications, setPendingApplications] = useState<any[]>([]);
+
+  const fetchData = async () => {
+    try {
+      const baseUrl = getApiBaseUrl();
+      const [listenersRes, kycRes] = await Promise.all([
+        fetch(`${baseUrl}/api/admin/listeners`),
+        fetch(`${baseUrl}/api/admin/kyc-queue`),
+      ]);
+      if (listenersRes.ok) {
+        const data = await listenersRes.json();
+        if (data.listeners) setListeners(data.listeners);
+      }
+      if (kycRes.ok) {
+        const data = await kycRes.json();
+        if (data.pendingApplications) setPendingApplications(data.pendingApplications);
+      }
+    } catch (e) {}
+  };
+
+  useEffect(() => {
+    fetchData();
+    const timer = setInterval(fetchData, 3000);
+    return () => clearInterval(timer);
+  }, []);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => {
       setToastMessage(prev => prev === msg ? null : prev);
     }, 3500);
-  };
-
-  const getBackendHost = () => {
-    if (typeof window !== 'undefined' && window.location.hostname) {
-      return window.location.hostname;
-    }
-    return 'localhost';
   };
 
   const playVoiceIntroSample = (id: string) => {
@@ -202,37 +193,43 @@ export default function ListenersKYCPage() {
     if (!app) return;
 
     try {
-      await fetch(`http://${getBackendHost()}:8682/api/admin/kyc-action`, {
+      const baseUrl = getApiBaseUrl();
+      const res = await fetch(`${baseUrl}/api/admin/kyc-action`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ listenerId: appId, action: 'approve' }),
       });
-    } catch (e) {}
+      if (res.ok) {
+        const data = await res.json();
+        if (data.listeners) setListeners(data.listeners);
+        if (data.pendingApplications) setPendingApplications(data.pendingApplications);
+      }
+    } catch (e) {
+      const newListener: ListenerProfile = {
+        id: `list-${Date.now()}`,
+        userId: `u-${Date.now()}`,
+        username: app.username,
+        name: app.name,
+        avatarUrl: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=400&q=80',
+        bio: app.bio,
+        languages: app.languages,
+        callRatePerMinINR: app.ratePerMinINR || 9,
+        isVideoEnabled: app.isVideoEnabled,
+        status: 'online',
+        rating: 5.0,
+        totalReviews: 0,
+        followersCount: 0,
+        giftsCount: 0,
+        voiceBioUrl: 'https://actions.google.com/sounds/v1/speech/voice_intro_1.mp3',
+        voiceBioDurationSeconds: app.voiceBioDurationSeconds,
+        kycStatus: 'verified',
+        panNumber: app.panNumber,
+        isAvailableForCalls: true,
+      };
+      setListeners([newListener, ...listeners]);
+      setPendingApplications(pendingApplications.filter(a => a.id !== appId));
+    }
 
-    const newListener: ListenerProfile = {
-      id: `list-${Date.now()}`,
-      userId: `u-${Date.now()}`,
-      username: app.username,
-      name: app.name,
-      avatarUrl: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=400&q=80',
-      bio: app.bio,
-      languages: app.languages,
-      callRatePerMinINR: app.ratePerMinINR,
-      isVideoEnabled: app.isVideoEnabled,
-      status: 'online',
-      rating: 5.0,
-      totalReviews: 0,
-      followersCount: 0,
-      giftsCount: 0,
-      voiceBioUrl: 'https://actions.google.com/sounds/v1/speech/voice_intro_1.mp3',
-      voiceBioDurationSeconds: app.voiceBioDurationSeconds,
-      kycStatus: 'verified',
-      panNumber: app.panNumber,
-      isAvailableForCalls: true,
-    };
-
-    setListeners([newListener, ...listeners]);
-    setPendingApplications(pendingApplications.filter(a => a.id !== appId));
     showToast(`Approved & Activated @${app.username} (${app.name})! Now discoverable on mobile.`);
   };
 
@@ -241,14 +238,20 @@ export default function ListenersKYCPage() {
     if (!app) return;
 
     try {
-      await fetch(`http://${getBackendHost()}:8682/api/admin/kyc-action`, {
+      const baseUrl = getApiBaseUrl();
+      const res = await fetch(`${baseUrl}/api/admin/kyc-action`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ listenerId: appId, action: 'reject' }),
       });
-    } catch (e) {}
+      if (res.ok) {
+        const data = await res.json();
+        if (data.pendingApplications) setPendingApplications(data.pendingApplications);
+      }
+    } catch (e) {
+      setPendingApplications(pendingApplications.filter(a => a.id !== appId));
+    }
 
-    setPendingApplications(pendingApplications.filter(a => a.id !== appId));
     showToast(`Application for @${app.username} rejected.`);
   };
 
@@ -256,7 +259,8 @@ export default function ListenersKYCPage() {
     const nextSuspended = listener.isAvailableForCalls; // toggle
 
     try {
-      await fetch(`http://${getBackendHost()}:8682/api/admin/listeners/${listener.id}/suspend`, {
+      const baseUrl = getApiBaseUrl();
+      await fetch(`${baseUrl}/api/admin/listeners/${listener.id}/suspend`, {
         method: 'POST',
       });
     } catch (e) {}
@@ -285,7 +289,8 @@ export default function ListenersKYCPage() {
 
     const rate = parseFloat(newTariff);
     try {
-      await fetch(`http://${getBackendHost()}:8682/api/admin/listeners/${editingListener.id}/tariff`, {
+      const baseUrl = getApiBaseUrl();
+      await fetch(`${baseUrl}/api/admin/listeners/${editingListener.id}/tariff`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ratePerMinINR: rate }),

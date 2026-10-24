@@ -20,7 +20,9 @@ import {
   Globe,
   LogOut,
   ChevronRight,
-  UserCheck
+  UserCheck,
+  IndianRupee,
+  Sparkles
 } from 'lucide-react-native';
 import { THEME } from '../theme';
 
@@ -29,6 +31,7 @@ interface AccountScreenProps {
   onTransactionsPress: () => void;
   onHelpPress: () => void;
   onBecomeListenerPress: () => void;
+  onEarningsPress?: () => void;
   isListenerVerified?: boolean;
 }
 
@@ -37,6 +40,7 @@ export const AccountScreen: React.FC<AccountScreenProps> = ({
   onTransactionsPress,
   onHelpPress,
   onBecomeListenerPress,
+  onEarningsPress,
   isListenerVerified = false,
 }) => {
   return (
@@ -84,6 +88,27 @@ export const AccountScreen: React.FC<AccountScreenProps> = ({
           </View>
           <ChevronRight size={18} color={THEME.colors.primary} />
         </TouchableOpacity>
+
+        {/* Host Earnings & Settlements Card */}
+        {onEarningsPress && (
+          <TouchableOpacity
+            style={styles.earningsCard}
+            onPress={onEarningsPress}
+            activeOpacity={0.85}
+          >
+            <View style={styles.earningsIconCircle}>
+              <IndianRupee size={18} color="#D97706" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Text style={styles.earningsTitle}>Host Earnings & Settlements</Text>
+                <View style={styles.planBadge}><Text style={styles.planBadgeText}>₹4.50 / ₹16.00 min</Text></View>
+              </View>
+              <Text style={styles.earningsSub}>View creator revenue share & request 1-click UPI payouts</Text>
+            </View>
+            <ChevronRight size={18} color="#D97706" />
+          </TouchableOpacity>
+        )}
 
         {/* Menu Options Card */}
         <View style={styles.menuCard}>
@@ -234,6 +259,48 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: THEME.colors.textSecondary,
     marginTop: 1,
+  },
+  earningsCard: {
+    backgroundColor: '#FFFBEB',
+    borderRadius: 16,
+    padding: 14,
+    marginTop: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    gap: 12,
+  },
+  earningsIconCircle: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: '#FEF3C7',
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  earningsTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#92400E',
+  },
+  planBadge: {
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  planBadgeText: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: '#B45309',
+  },
+  earningsSub: {
+    fontSize: 11,
+    color: '#78350F',
+    marginTop: 2,
   },
   menuCard: {
     backgroundColor: THEME.colors.white,

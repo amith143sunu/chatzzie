@@ -4,10 +4,17 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  TextInput,
   TouchableOpacity,
+  TextInput,
 } from 'react-native';
-import { Search, ChevronDown, Video } from 'lucide-react-native';
+import {
+  Search,
+  Filter,
+  ChevronDown,
+  Video,
+  Sparkles,
+  Users
+} from 'lucide-react-native';
 import { HeaderBar } from '../components/HeaderBar';
 import { ListenerCard } from '../components/ListenerCard';
 import { ListenerProfile, TOP_LANGUAGES } from '@chatzie/shared';
@@ -16,6 +23,7 @@ import { THEME } from '../theme';
 interface CallsScreenProps {
   balanceINR: number;
   listeners: ListenerProfile[];
+  isDesktop?: boolean;
   onBalancePress: () => void;
   onListenerPress: (listener: ListenerProfile) => void;
   onCallPress: (listener: ListenerProfile, type: 'audio' | 'video') => void;
@@ -24,6 +32,7 @@ interface CallsScreenProps {
 export const CallsScreen: React.FC<CallsScreenProps> = ({
   balanceINR,
   listeners,
+  isDesktop = false,
   onBalancePress,
   onListenerPress,
   onCallPress,
@@ -49,19 +58,22 @@ export const CallsScreen: React.FC<CallsScreenProps> = ({
 
   return (
     <View style={styles.container}>
-      <HeaderBar
-        title="Chatzie"
-        balanceINR={balanceINR}
-        onBalancePress={onBalancePress}
-      />
+      {/* Mobile Header Bar (Only visible when NOT in Desktop mode) */}
+      {!isDesktop && (
+        <HeaderBar
+          title="Chatzie"
+          balanceINR={balanceINR}
+          onBalancePress={onBalancePress}
+        />
+      )}
 
-      {/* Filter Bar */}
+      {/* Filter & Search Bar */}
       <View style={styles.filterBar}>
         {/* Search Input Box */}
         <View style={styles.searchBox}>
           <Search size={16} color={THEME.colors.textMuted} />
           <TextInput
-            placeholder="Search listeners..."
+            placeholder="Search listeners by name, language..."
             placeholderTextColor={THEME.colors.textMuted}
             value={searchQuery}
             onChangeText={setSearchQuery}
@@ -76,7 +88,7 @@ export const CallsScreen: React.FC<CallsScreenProps> = ({
           activeOpacity={0.8}
         >
           <Text style={[styles.filterPillText, selectedLanguage !== 'All' && styles.filterPillTextActive]}>
-            {selectedLanguage === 'All' ? 'Language' : selectedLanguage}
+            {selectedLanguage === 'All' ? 'All Languages' : selectedLanguage}
           </Text>
           <ChevronDown size={14} color={selectedLanguage !== 'All' ? THEME.colors.primary : THEME.colors.textSecondary} />
         </TouchableOpacity>
@@ -116,20 +128,27 @@ export const CallsScreen: React.FC<CallsScreenProps> = ({
         </View>
       )}
 
-      {/* Listeners Feed */}
+      {/* Listeners Feed - Multi-column responsive grid on desktop */}
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.feedScroll}
       >
-        <View style={{ height: 8 }} />
-        {filteredListeners.map((listener) => (
-          <ListenerCard
-            key={listener.id}
-            listener={listener}
-            onCardPress={() => onListenerPress(listener)}
-            onCallPress={(type) => onCallPress(listener, type)}
-          />
-        ))}
+        <View style={styles.metaHeader}>
+          <Text style={styles.metaCount}>{filteredListeners.length} Verified Hosts Online</Text>
+          <Text style={styles.metaTariff}>All calls: ₹9/min Voice • ₹30/min Video</Text>
+        </View>
+
+        <View style={isDesktop ? styles.desktopGrid : styles.mobileList}>
+          {filteredListeners.map((listener) => (
+            <View key={listener.id} style={isDesktop ? styles.desktopCol : undefined}>
+              <ListenerCard
+                listener={listener}
+                onCardPress={() => onListenerPress(listener)}
+                onCallPress={(type) => onCallPress(listener, type)}
+              />
+            </View>
+          ))}
+        </View>
 
         {filteredListeners.length === 0 && (
           <View style={styles.emptyContainer}>
@@ -151,36 +170,36 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingVertical: 10,
+    paddingVertical: 12,
     backgroundColor: THEME.colors.white,
     borderBottomWidth: 1,
     borderBottomColor: THEME.colors.border,
-    gap: 8,
+    gap: 10,
   },
   searchBox: {
     flex: 1,
-    height: 38,
-    backgroundColor: THEME.colors.borderLight,
-    borderRadius: 19,
+    height: 40,
+    backgroundColor: THEME.colors.inputBg,
+    borderRadius: 20,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 12,
+    paddingHorizontal: 14,
+    gap: 8,
   },
   searchInput: {
     flex: 1,
+    height: 40,
     fontSize: 13,
     color: THEME.colors.textPrimary,
-    marginLeft: 6,
-    paddingVertical: 0,
   },
   filterPill: {
+    height: 38,
+    paddingHorizontal: 14,
+    borderRadius: 20,
+    backgroundColor: THEME.colors.background,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    height: 38,
-    paddingHorizontal: 12,
-    borderRadius: 19,
-    backgroundColor: THEME.colors.white,
+    gap: 6,
     borderWidth: 1,
     borderColor: THEME.colors.border,
   },
@@ -190,17 +209,18 @@ const styles = StyleSheet.create({
   },
   filterPillText: {
     fontSize: 12,
-    fontWeight: '700',
+    fontWeight: '600',
     color: THEME.colors.textSecondary,
   },
   filterPillTextActive: {
     color: THEME.colors.primary,
+    fontWeight: '700',
   },
   langPickerContainer: {
     backgroundColor: THEME.colors.white,
+    paddingVertical: 10,
     borderBottomWidth: 1,
-    borderBottomColor: THEME.colors.border,
-    paddingVertical: 8,
+    borderBottomColor: THEME.colors.borderLight,
   },
   langList: {
     paddingHorizontal: 16,
@@ -210,10 +230,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 6,
     borderRadius: 16,
-    backgroundColor: THEME.colors.borderLight,
+    backgroundColor: THEME.colors.background,
+    borderWidth: 1,
+    borderColor: THEME.colors.border,
   },
   langChipActive: {
     backgroundColor: THEME.colors.primary,
+    borderColor: THEME.colors.primary,
   },
   langChipText: {
     fontSize: 12,
@@ -225,7 +248,36 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   feedScroll: {
-    paddingBottom: 24,
+    paddingBottom: 32,
+  },
+  metaHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  metaCount: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#334155',
+  },
+  metaTariff: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#0284C7',
+  },
+  desktopGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    paddingHorizontal: 8,
+  },
+  desktopCol: {
+    width: '50%',
+    minWidth: 320,
+  },
+  mobileList: {
+    width: '100%',
   },
   emptyContainer: {
     padding: 40,
@@ -241,6 +293,5 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: THEME.colors.textSecondary,
     marginTop: 4,
-    textAlign: 'center',
-  }
+  },
 });
