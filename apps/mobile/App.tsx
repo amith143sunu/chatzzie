@@ -129,7 +129,23 @@ export default function App() {
             if (parsed.id) setUserId(parsed.id);
             if (parsed.avatarUrl) setUserAvatar(parsed.avatarUrl);
             if (typeof parsed.walletBalanceINR === 'number') setWalletBalanceINR(parsed.walletBalanceINR);
-            if (parsed.role === 'listener') setIsListenerVerified(true);
+            if (parsed.role === 'listener') {
+              setIsListenerVerified(true);
+              // Auto-sync host with backend so host is immediately online in public listings even after server restart
+              try {
+                const baseUrl = getApiBaseUrl();
+                fetch(`${baseUrl}/api/host/register-or-sync`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    name: parsed.name,
+                    username: parsed.username,
+                    role: 'listener',
+                    avatarUrl: parsed.avatarUrl,
+                  }),
+                }).catch(() => {});
+              } catch (e) {}
+            }
             setIsAuthenticated(true);
             return;
           }
@@ -158,6 +174,19 @@ export default function App() {
 
     if (u.role === 'listener') {
       setIsListenerVerified(true);
+      try {
+        const baseUrl = getApiBaseUrl();
+        fetch(`${baseUrl}/api/host/register-or-sync`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: u.name,
+            username: u.username || u.name.toLowerCase().replace(/[^a-z0-9]/g, '_'),
+            role: 'listener',
+            avatarUrl: u.avatarUrl,
+          }),
+        }).catch(() => {});
+      } catch (e) {}
       fetch(`${getApiBaseUrl()}/api/listeners`)
         .then((r) => r.json())
         .then((data) => {
@@ -675,9 +704,14 @@ export default function App() {
           <ChatScreen
             balanceINR={walletBalanceINR}
             isDesktop={isDesktop}
+            userName={userName}
+            userId={userId}
             onBalancePress={() => handleTabChange('wallet')}
             onConversationPress={(chat) => {
-              const matched = listeners.find((l) => l.name.toLowerCase().includes(chat.name.toLowerCase())) || listeners[0];
+              const matched = chat.listener || listeners.find((l) => 
+                (chat.username && l.username.toLowerCase() === chat.username.toLowerCase()) ||
+                l.name.toLowerCase().includes(chat.name.toLowerCase())
+              ) || listeners[0];
               setSelectedListener(matched);
               setCurrentScreen('chat_detail');
             }}

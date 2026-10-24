@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,16 +7,20 @@ import {
   TouchableOpacity,
   Image,
   TextInput,
+  Alert,
 } from 'react-native';
 import { Bell, Search, ChevronRight, CheckCheck } from 'lucide-react-native';
 import { HeaderBar } from '../components/HeaderBar';
 import { THEME } from '../theme';
+import { getApiBaseUrl } from '../services/apiConfig';
 
 interface ChatScreenProps {
   balanceINR: number;
   onBalancePress: () => void;
   onConversationPress: (conversation: any) => void;
   isDesktop?: boolean;
+  userName?: string;
+  userId?: string;
 }
 
 export const ChatScreen: React.FC<ChatScreenProps> = ({
@@ -24,75 +28,48 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
   onBalancePress,
   onConversationPress,
   isDesktop = false,
+  userName = 'Caller',
+  userId = 'u_caller',
 }) => {
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-
-  const conversations = [
+  const [conversations, setConversations] = useState<any[]>([
     {
       id: 'c-1',
       name: 'Priya Sharma',
+      username: 'priya_sharma',
       avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80',
-      lastMessage: 'Thanks for sharing that! Really gave me a fresh perspective.',
-      time: '10:14 AM',
+      lastMessage: 'Thanks for connecting! Send me a message or call whenever you are ready.',
+      time: 'Just now',
       unread: 0,
       online: true,
-    },
-    {
-      id: 'c-2',
-      name: 'Kabir Mehra',
-      avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=400&q=80',
-      lastMessage: 'Are you free for a quick 10-minute audio call today?',
-      time: '9:42 AM',
-      unread: 1,
-      online: true,
-    },
-    {
-      id: 'c-3',
-      name: 'Ananya Roy',
-      avatarUrl: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=400&q=80',
-      lastMessage: 'Hope your presentation went well this morning!',
-      time: '8:15 AM',
-      unread: 0,
-      online: false,
-    },
-    {
-      id: 'c-4',
-      name: 'Dr. Rohan Kapoor',
-      avatarUrl: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=400&q=80',
-      lastMessage: 'Remember to take short walking breaks when stressed.',
-      time: 'Yesterday',
-      unread: 0,
-      online: true,
-    },
-    {
-      id: 'c-5',
-      name: 'Meera Iyer',
-      avatarUrl: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=400&q=80',
-      lastMessage: 'I listened to that podcast recommendation, loved it!',
-      time: 'Yesterday',
-      unread: 0,
-      online: false,
-    },
-    {
-      id: 'c-6',
-      name: 'Zaid Siddiqui',
-      avatarUrl: 'https://images.unsplash.com/photo-1522075469751-3a6694fb2f61?auto=format&fit=crop&w=400&q=80',
-      lastMessage: "Let's connect again over the weekend.",
-      time: 'Wednesday',
-      unread: 2,
-      online: true,
-    },
-    {
-      id: 'c-7',
-      name: 'Pooja Hegde',
-      avatarUrl: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=400&q=80',
-      lastMessage: 'Take care and have a wonderful week ahead!',
-      time: 'Tuesday',
-      unread: 0,
-      online: false,
-    },
-  ];
+    }
+  ]);
+
+  // Real-Time Caller Conversations Poller
+  useEffect(() => {
+    let isMounted = true;
+    const fetchConversations = async () => {
+      try {
+        const baseUrl = getApiBaseUrl();
+        const effectiveCaller = userName || userId || 'Caller';
+        const res = await fetch(`${baseUrl}/api/chat/caller-conversations?caller=${encodeURIComponent(effectiveCaller)}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success && Array.isArray(data.conversations) && data.conversations.length > 0 && isMounted) {
+            setConversations(data.conversations);
+          }
+        }
+      } catch (e) {}
+    };
+
+    fetchConversations();
+    const interval = setInterval(fetchConversations, 2000);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, [userName, userId]);
 
   return (
     <View style={styles.container}>
@@ -114,19 +91,29 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
       )}
 
       {/* Notifications Warning Banner */}
-      {!notificationsEnabled && (
-        <TouchableOpacity
-          style={styles.notificationBanner}
-          onPress={() => setNotificationsEnabled(true)}
-          activeOpacity={0.85}
-        >
-          <Bell size={16} color={THEME.colors.primary} />
-          <Text style={styles.notificationText}>
-            Notifications are turned off. Tap to enable.
-          </Text>
-          <ChevronRight size={16} color={THEME.colors.primary} />
-        </TouchableOpacity>
-      )}
+      <TouchableOpacity
+        style={styles.notificationBanner}
+        onPress={async () => {
+          if (typeof window !== 'undefined' && 'Notification' in window) {
+            try {
+              const perm = await Notification.requestPermission();
+              if (perm === 'granted') {
+                setNotificationsEnabled(true);
+                Alert.alert('Notifications Enabled', 'You will now receive notifications for incoming messages and calls!');
+                return;
+              }
+            } catch (e) {}
+          }
+          setNotificationsEnabled(!notificationsEnabled);
+        }}
+        activeOpacity={0.85}
+      >
+        <Bell size={16} color={THEME.colors.primary} />
+        <Text style={styles.notificationText}>
+          {notificationsEnabled ? '🔔 Real-time notifications active' : 'Notifications are turned off. Tap to enable.'}
+        </Text>
+        <ChevronRight size={16} color={THEME.colors.primary} />
+      </TouchableOpacity>
 
       {/* Search Header */}
       <View style={styles.searchRow}>
@@ -147,7 +134,10 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.listContent}
       >
-        {conversations.map((chat) => (
+        {(searchQuery.trim()
+          ? conversations.filter(c => c.name.toLowerCase().includes(searchQuery.toLowerCase()) || (c.lastMessage && c.lastMessage.toLowerCase().includes(searchQuery.toLowerCase())))
+          : conversations
+        ).map((chat) => (
           <TouchableOpacity
             key={chat.id}
             style={styles.chatRow}

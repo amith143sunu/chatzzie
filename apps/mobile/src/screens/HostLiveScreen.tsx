@@ -125,6 +125,35 @@ export const HostLiveScreen: React.FC<HostLiveScreenProps> = ({
     reason: '',
   });
 
+  const latestCallerMsgTime = useRef<number>(0);
+  const [newMsgToast, setNewMsgToast] = useState<{ visible: boolean; sender: string; text: string } | null>(null);
+
+  // Pleasant message chime for new incoming chat message (Web Audio API)
+  const playMessagePing = () => {
+    if (typeof window === 'undefined') return;
+    try {
+      const AudioCtx = (window as any).AudioContext || (window as any).webkitAudioContext;
+      if (!AudioCtx) return;
+      const ctx = new AudioCtx();
+      if (ctx.state === 'suspended') ctx.resume();
+
+      const freqs = [587.33, 880]; // D5, A5
+      freqs.forEach((freq, idx) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.value = freq;
+        const start = ctx.currentTime + idx * 0.12;
+        gain.gain.setValueAtTime(0.25, start);
+        gain.gain.exponentialRampToValueAtTime(0.001, start + 0.25);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(start);
+        osc.stop(start + 0.25);
+      });
+    } catch (e) {}
+  };
+
   // Audio Chime Player for testing speakers & incoming ring
   const playRingtone = () => {
     if (typeof window === 'undefined') return;
@@ -185,6 +214,41 @@ export const HostLiveScreen: React.FC<HostLiveScreenProps> = ({
         const chatData = await chatRes.json();
         if (chatData.success && Array.isArray(chatData.conversations)) {
           setChatConversations(chatData.conversations);
+
+          // Check if any conversation has a new caller message
+          let newestCallerMsg: any = null;
+          chatData.conversations.forEach((conv: any) => {
+            if (Array.isArray(conv.messages)) {
+              conv.messages.forEach((m: any) => {
+                if (m.senderRole === 'caller' && m.timestamp && m.timestamp > (newestCallerMsg?.timestamp || 0)) {
+                  newestCallerMsg = m;
+                }
+              });
+            }
+          });
+
+          if (newestCallerMsg && newestCallerMsg.timestamp > latestCallerMsgTime.current) {
+            if (latestCallerMsgTime.current !== 0) {
+              playMessagePing();
+              setNewMsgToast({
+                visible: true,
+                sender: newestCallerMsg.senderName,
+                text: newestCallerMsg.text || 'Sent a photo message',
+              });
+              setTimeout(() => setNewMsgToast(null), 5000);
+
+              if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
+                try {
+                  new Notification(`Chatzie • ${newestCallerMsg.senderName}`, {
+                    body: newestCallerMsg.text || 'Sent a photo message',
+                    icon: '/favicon.ico',
+                  });
+                } catch (e) {}
+              }
+            }
+            latestCallerMsgTime.current = newestCallerMsg.timestamp;
+          }
+
           setActiveChatCaller((prevActive: any) => {
             if (!prevActive) return isMobile ? null : (chatData.conversations[0] || null);
             const updated = chatData.conversations.find((c: any) => c.id === prevActive.id);
@@ -197,7 +261,7 @@ export const HostLiveScreen: React.FC<HostLiveScreenProps> = ({
 
   useEffect(() => {
     loadWorkstationData();
-    const interval = setInterval(loadWorkstationData, 4000);
+    const interval = setInterval(loadWorkstationData, 2000);
     return () => clearInterval(interval);
   }, [hostUsername]);
 
@@ -443,6 +507,29 @@ export const HostLiveScreen: React.FC<HostLiveScreenProps> = ({
           </TouchableOpacity>
         </View>
       </View>
+
+      {/* Floating Incoming Caller Message Toast Notification */}
+      {newMsgToast && (
+        <TouchableOpacity
+          style={styles.floatingMsgToast}
+          onPress={() => {
+            setActiveTab('chats');
+            const target = chatConversations.find(c => c.callerName.toLowerCase().includes(newMsgToast.sender.toLowerCase()));
+            if (target) setActiveChatCaller(target);
+            setNewMsgToast(null);
+          }}
+          activeOpacity={0.9}
+        >
+          <View style={styles.toastIconBox}>
+            <MessageSquare size={18} color="#FFFFFF" />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.toastTitle}>New message from {newMsgToast.sender}</Text>
+            <Text style={styles.toastSub} numberOfLines={1}>{newMsgToast.text}</Text>
+          </View>
+          <Text style={styles.toastAction}>Reply →</Text>
+        </TouchableOpacity>
+      )}
 
       {/* Host Navigation Tabs (Workstation) */}
       <View style={{ backgroundColor: '#FFFFFF', borderBottomWidth: 1, borderBottomColor: '#E2E8F0' }}>
@@ -992,6 +1079,50 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F8FAFC',
+  },
+  floatingMsgToast: {
+    position: 'absolute',
+    top: 68,
+    left: 16,
+    right: 16,
+    backgroundColor: '#0F172A',
+    borderRadius: 16,
+    padding: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    borderWidth: 1.5,
+    borderColor: '#3B82F6',
+    zIndex: 999,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.35,
+    shadowRadius: 12,
+    elevation: 10,
+  },
+  toastIconBox: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#2563EB',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  toastTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#FFFFFF',
+  },
+  toastSub: {
+    fontSize: 12,
+    color: '#CBD5E1',
+    marginTop: 2,
+  },
+  toastAction: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#60A5FA',
+    paddingHorizontal: 8,
   },
   topBar: {
     backgroundColor: '#0F172A',

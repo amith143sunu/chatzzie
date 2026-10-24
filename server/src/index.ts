@@ -845,6 +845,120 @@ app.get('/api/chat/host-conversations/:username', (req, res) => {
   res.json({ success: true, conversations });
 });
 
+// Get caller chat conversations list
+app.get('/api/chat/caller-conversations', (req, res) => {
+  const { caller } = req.query;
+  if (!caller || typeof caller !== 'string') {
+    return res.json({ success: true, conversations: [] });
+  }
+  const cleanCaller = caller.toLowerCase().trim().replace(/[^a-z0-9]/g, '');
+
+  const matchingKeys = Object.keys(chatDatabase).filter(k => k.includes(cleanCaller));
+  const conversations: any[] = [];
+
+  matchingKeys.forEach(k => {
+    const msgs = chatDatabase[k];
+    if (msgs && msgs.length > 0) {
+      const lastMsg = msgs[msgs.length - 1];
+      const hostUsernameOrId = lastMsg.senderRole === 'host' ? lastMsg.senderId : lastMsg.recipientUsername;
+      const matchedHost = mockListeners.find(l => 
+        l.username.toLowerCase() === hostUsernameOrId.toLowerCase() ||
+        l.name.toLowerCase() === hostUsernameOrId.toLowerCase()
+      ) || {
+        id: `list_${hostUsernameOrId}`,
+        name: lastMsg.senderRole === 'host' ? lastMsg.senderName : lastMsg.recipientUsername,
+        username: hostUsernameOrId,
+        avatarUrl: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=300&q=80',
+        callRatePerMinINR: 9,
+        isVideoEnabled: true,
+        status: 'online',
+        languages: ['Hindi', 'English'],
+        bio: 'Verified Host',
+      };
+
+      conversations.push({
+        id: k,
+        name: matchedHost.name,
+        username: matchedHost.username,
+        avatarUrl: matchedHost.avatarUrl,
+        lastMessage: lastMsg.text || 'Photo message',
+        time: lastMsg.timeFormatted,
+        unread: lastMsg.senderRole === 'host' ? 1 : 0,
+        online: (activeHostStatus[matchedHost.username] !== 'offline'),
+        listener: matchedHost,
+      });
+    }
+  });
+
+  // If user has no conversations yet, seed with top active online hosts so they can easily message
+  if (conversations.length === 0) {
+    mockListeners.slice(0, 4).forEach(l => {
+      conversations.push({
+        id: `conv_${l.username}`,
+        name: l.name,
+        username: l.username,
+        avatarUrl: l.avatarUrl,
+        lastMessage: 'Tap to start a private conversation or audio/video call.',
+        time: 'Active now',
+        unread: 0,
+        online: l.status === 'online',
+        listener: l,
+      });
+    });
+  }
+
+  res.json({ success: true, conversations });
+});
+
+// Auto-sync host session on startup so host never disappears on server restart
+app.post('/api/host/register-or-sync', (req, res) => {
+  const { name, username, role, avatarUrl } = req.body;
+  if (!username) return res.status(400).json({ error: 'Username required' });
+
+  const cleanName = (name || 'Host').trim();
+  const cleanUsername = username.toLowerCase().replace(/[^a-z0-9]/g, '_');
+
+  let existing = mockListeners.find(l => 
+    l.username.toLowerCase() === cleanUsername.toLowerCase() ||
+    l.name.toLowerCase() === cleanName.toLowerCase()
+  );
+
+  if (existing) {
+    existing.status = 'online';
+    existing.isAvailableForCalls = true;
+    activeHostStatus[existing.username] = 'online';
+  } else {
+    existing = {
+      id: `list_${Date.now()}`,
+      userId: `u_${Date.now()}`,
+      username: cleanUsername,
+      name: cleanName,
+      avatarUrl: avatarUrl || 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=300&q=80',
+      bio: 'Verified compassionate listener ready to talk and support you.',
+      languages: ['Hindi', 'English'],
+      callRatePerMinINR: 9,
+      isVideoEnabled: true,
+      status: 'online',
+      rating: 5.0,
+      totalReviews: 4,
+      followersCount: 18,
+      giftsCount: 3,
+      voiceBioUrl: '',
+      voiceBioDurationSeconds: 15,
+      kycStatus: 'verified',
+      panNumber: 'ABCDE1234F',
+      isAvailableForCalls: true,
+    };
+    mockListeners.unshift(existing);
+    activeHostStatus[cleanUsername] = 'online';
+  }
+
+  io.emit('listener_status_change', { listenerId: existing.id, status: 'online' });
+  io.emit('listeners_updated', mockListeners);
+
+  res.json({ success: true, listener: existing });
+});
+
 // Check if a call session was ended by either party
 app.get('/api/calls/status', (req, res) => {
   const channel = req.query.channel as string;
@@ -1053,10 +1167,6 @@ app.post('/api/chat/deduct', (req, res) => {
   });
 });
 
-// Public listeners endpoint for mobile & web
-app.get('/api/listeners', (req, res) => {
-  res.json(mockListeners);
-});
 
 // Submit KYC from mobile app
 app.post('/api/listeners/kyc', (req, res) => {
