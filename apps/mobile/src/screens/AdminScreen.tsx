@@ -38,12 +38,17 @@ interface AdminScreenProps {
 type AdminTab = 'overview' | 'kyc' | 'live' | 'users' | 'payouts' | 'reports';
 
 export const AdminScreen: React.FC<AdminScreenProps> = ({ onBackToApp }) => {
+  const [isAuthorized, setIsAuthorized] = useState<boolean>(false);
+  const [adminEmail, setAdminEmail] = useState('');
+  const [adminPass, setAdminPass] = useState('');
+  const [authError, setAuthError] = useState('');
+
   const [activeTab, setActiveTab] = useState<AdminTab>('overview');
   const [stats, setStats] = useState<any>({
-    totalUsers: 1420,
-    totalListeners: 48,
-    activeLiveSessions: 2,
-    todayRevenueINR: 12450.0,
+    totalUsers: 0,
+    totalListeners: 0,
+    activeLiveSessions: 0,
+    todayRevenueINR: 0,
   });
   const [kycQueue, setKycQueue] = useState<any[]>([]);
   const [liveSessions, setLiveSessions] = useState<any[]>([]);
@@ -53,6 +58,33 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ onBackToApp }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [searchUser, setSearchUser] = useState('');
   const [actionNotice, setActionNotice] = useState<string>('');
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const auth = localStorage.getItem('chatzie_admin_auth');
+      if (auth === 'true') setIsAuthorized(true);
+    }
+  }, []);
+
+  const handleAdminLogin = () => {
+    const cleanEmail = adminEmail.trim().toLowerCase();
+    if (cleanEmail === 'amith@chatzzie.com' && adminPass === 'Admin@123') {
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('chatzie_admin_auth', 'true');
+      }
+      setIsAuthorized(true);
+      setAuthError('');
+    } else {
+      setAuthError('Invalid administrator credentials.');
+    }
+  };
+
+  const handleAdminLogout = () => {
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('chatzie_admin_auth');
+    }
+    setIsAuthorized(false);
+  };
 
   const fetchAdminData = async () => {
     setIsLoading(true);
@@ -163,6 +195,52 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ onBackToApp }) => {
     (u.id && u.id.toLowerCase().includes(searchUser.toLowerCase()))
   );
 
+  if (!isAuthorized) {
+    return (
+      <View style={styles.authContainer}>
+        <View style={styles.authCard}>
+          <View style={styles.authIconCircle}>
+            <ShieldCheck size={32} color="#38BDF8" />
+          </View>
+          <Text style={styles.authTitle}>Chatzie Admin Backoffice</Text>
+          <Text style={styles.authSub}>Restricted access. Sign in with administrator credentials.</Text>
+
+          {authError ? (
+            <View style={styles.authErrorBox}>
+              <Text style={styles.authErrorText}>{authError}</Text>
+            </View>
+          ) : null}
+
+          <TextInput
+            style={styles.authInput}
+            placeholder="amith@chatzzie.com"
+            placeholderTextColor="#64748B"
+            value={adminEmail}
+            onChangeText={setAdminEmail}
+            autoCapitalize="none"
+          />
+
+          <TextInput
+            style={styles.authInput}
+            placeholder="Password (Admin@123)"
+            placeholderTextColor="#64748B"
+            secureTextEntry
+            value={adminPass}
+            onChangeText={setAdminPass}
+          />
+
+          <TouchableOpacity style={styles.authBtn} onPress={handleAdminLogin} activeOpacity={0.85}>
+            <Text style={styles.authBtnText}>Sign In to Backoffice</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.authExitBtn} onPress={onBackToApp} activeOpacity={0.85}>
+            <Text style={styles.authExitText}>← Return to Public App</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
       {/* Admin Top Header */}
@@ -177,14 +255,19 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ onBackToApp }) => {
               <ShieldCheck size={20} color="#38BDF8" />
               <Text style={styles.headerTitle}>Chatzie Backoffice</Text>
             </View>
-            <Text style={styles.headerSub}>Platform Master Console • Port /admin</Text>
+            <Text style={styles.headerSub}>Platform Master Console • amith@chatzzie.com</Text>
           </View>
         </View>
 
-        <TouchableOpacity style={styles.refreshBtn} onPress={fetchAdminData} activeOpacity={0.8}>
-          <RefreshCw size={14} color="#94A3B8" />
-          <Text style={styles.refreshText}>Sync</Text>
-        </TouchableOpacity>
+        <View style={{ flexDirection: 'row', gap: 8 }}>
+          <TouchableOpacity style={styles.refreshBtn} onPress={fetchAdminData} activeOpacity={0.8}>
+            <RefreshCw size={14} color="#94A3B8" />
+            <Text style={styles.refreshText}>Sync</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.logoutAdminBtn} onPress={handleAdminLogout} activeOpacity={0.8}>
+            <Text style={styles.logoutAdminText}>Sign Out</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Action Notice Banner */}
@@ -863,5 +946,112 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: '#64748B',
     marginTop: 2,
+  },
+  authContainer: {
+    flex: 1,
+    backgroundColor: '#020617',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  authCard: {
+    backgroundColor: '#0F172A',
+    borderRadius: 24,
+    padding: 28,
+    width: '100%',
+    maxWidth: 420,
+    borderWidth: 1,
+    borderColor: '#1E293B',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.3,
+    shadowRadius: 20,
+    elevation: 8,
+  },
+  authIconCircle: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#1E293B',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  authTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#F8FAFC',
+    textAlign: 'center',
+  },
+  authSub: {
+    fontSize: 12,
+    color: '#94A3B8',
+    textAlign: 'center',
+    marginTop: 6,
+    marginBottom: 20,
+    lineHeight: 18,
+  },
+  authErrorBox: {
+    backgroundColor: '#7F1D1D',
+    borderWidth: 1,
+    borderColor: '#DC2626',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    marginBottom: 14,
+    width: '100%',
+  },
+  authErrorText: {
+    color: '#FCA5A5',
+    fontSize: 12,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  authInput: {
+    width: '100%',
+    backgroundColor: '#1E293B',
+    borderWidth: 1,
+    borderColor: '#334155',
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    color: '#F8FAFC',
+    fontSize: 13,
+    marginBottom: 12,
+  },
+  authBtn: {
+    width: '100%',
+    backgroundColor: '#2563EB',
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginTop: 6,
+    marginBottom: 14,
+  },
+  authBtnText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  authExitBtn: {
+    paddingVertical: 6,
+  },
+  authExitText: {
+    color: '#64748B',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  logoutAdminBtn: {
+    backgroundColor: '#7F1D1D',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    justifyContent: 'center',
+  },
+  logoutAdminText: {
+    color: '#FCA5A5',
+    fontSize: 12,
+    fontWeight: '700',
   },
 });

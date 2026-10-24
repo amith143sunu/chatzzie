@@ -254,75 +254,90 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         </View>
 
         {/* Multi-column Grid on Desktop / Vertical on Mobile */}
-        <View style={isDesktop ? styles.desktopFeaturedGrid : styles.featuredList}>
-          {listeners.slice(0, isDesktop ? 4 : 3).map((listener) => (
-            <View key={listener.id} style={isDesktop ? styles.desktopCardCol : undefined}>
-              <View style={isDesktop ? styles.desktopListenerCard : styles.listenerItem}>
-                {/* Profile Click Target */}
-                <TouchableOpacity
-                  style={{ flexDirection: 'row', alignItems: 'center', flex: 1, minWidth: 0 }}
-                  onPress={() => onListenerPress(listener)}
-                  activeOpacity={0.8}
-                >
-                  <View style={styles.listenerItemAvatarContainer}>
-                    <Image source={{ uri: listener.avatarUrl }} style={styles.listenerItemAvatar} />
-                    <View style={[styles.onlineDot, listener.status === 'busy' && { backgroundColor: '#EF4444' }]} />
-                  </View>
-
-                  <View style={styles.listenerItemInfo}>
-                    <View style={styles.nameRow}>
-                      <Text style={styles.listenerItemName} numberOfLines={1}>{listener.name}</Text>
-                      <View style={styles.ratingBadgeSmall}>
-                        <Star size={11} color="#F59E0B" fill="#F59E0B" />
-                        <Text style={styles.ratingBadgeText}>{listener.rating}</Text>
-                      </View>
-                    </View>
-                    <Text style={styles.listenerItemHandle} numberOfLines={1}>
-                      {listener.status === 'busy' ? '🔴 Busy on Call • ' : '🟢 Online • '}
-                      @{listener.username} • {listener.languages.join(', ')}
-                    </Text>
-                    <Text style={styles.listenerItemRate}>
-                      ₹9/min Voice{listener.isVideoEnabled ? ' • ₹30/min Video' : ''}
-                    </Text>
-                  </View>
-                </TouchableOpacity>
-
-                {/* Independent Call Action Buttons */}
-                <View style={styles.actionBtnsGroup}>
+        {listeners.length === 0 ? (
+          <View style={styles.emptyCard}>
+            <View style={styles.emptyIconCircle}>
+              <Headphones size={28} color="#2563EB" />
+            </View>
+            <Text style={styles.emptyTitle}>No Hosts Online Right Now</Text>
+            <Text style={styles.emptySub}>
+              Verified hosts will appear here as soon as they go live. You can also go live as a host to start receiving calls!
+            </Text>
+            <TouchableOpacity style={styles.emptyHostBtn} onPress={onBecomeListenerPress} activeOpacity={0.85}>
+              <Text style={styles.emptyHostBtnText}>Go Live as Host</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <View style={isDesktop ? styles.desktopFeaturedGrid : styles.featuredList}>
+            {listeners.slice(0, isDesktop ? 4 : 3).map((listener) => (
+              <View key={listener.id} style={isDesktop ? styles.desktopCardCol : undefined}>
+                <View style={isDesktop ? styles.desktopListenerCard : styles.listenerItem}>
+                  {/* Profile Click Target */}
                   <TouchableOpacity
-                    style={[styles.listenerCallBtn, listener.status === 'busy' && { backgroundColor: '#F59E0B' }]}
-                    onPress={() => onCallPress(listener, 'audio')}
+                    style={{ flexDirection: 'row', alignItems: 'center', flex: 1, minWidth: 0 }}
+                    onPress={() => onListenerPress(listener)}
                     activeOpacity={0.8}
                   >
-                    <Phone size={12} color={THEME.colors.white} />
-                    <Text style={styles.listenerCallBtnText}>{listener.status === 'busy' ? 'Queue' : 'Call ₹9'}</Text>
+                    <View style={styles.listenerItemAvatarContainer}>
+                      <Image source={{ uri: listener.avatarUrl }} style={styles.listenerItemAvatar} />
+                      <View style={[styles.onlineDot, listener.status === 'busy' && { backgroundColor: '#EF4444' }]} />
+                    </View>
+
+                    <View style={styles.listenerItemInfo}>
+                      <View style={styles.nameRow}>
+                        <Text style={styles.listenerItemName} numberOfLines={1}>{listener.name}</Text>
+                        <View style={styles.ratingBadgeSmall}>
+                          <Star size={11} color="#F59E0B" fill="#F59E0B" />
+                          <Text style={styles.ratingBadgeText}>{listener.rating}</Text>
+                        </View>
+                      </View>
+                      <Text style={styles.listenerItemHandle} numberOfLines={1}>
+                        {listener.status === 'busy' ? '🔴 Busy on Call • ' : '🟢 Online • '}
+                        @{listener.username} • {listener.languages.join(', ')}
+                      </Text>
+                      <Text style={styles.listenerItemRate}>
+                        ₹9/min Voice{listener.isVideoEnabled ? ' • ₹30/min Video' : ''}
+                      </Text>
+                    </View>
                   </TouchableOpacity>
 
-                  {listener.isVideoEnabled && (
+                  {/* Independent Call Action Buttons */}
+                  <View style={styles.actionBtnsGroup}>
                     <TouchableOpacity
-                      style={[
-                        styles.listenerVideoBtn,
-                        listener.status === 'busy' && { borderColor: '#F59E0B', backgroundColor: '#FEF3C7' },
-                      ]}
-                      onPress={() => onCallPress(listener, 'video')}
+                      style={[styles.listenerCallBtn, listener.status === 'busy' && { backgroundColor: '#F59E0B' }]}
+                      onPress={() => onCallPress(listener, 'audio')}
                       activeOpacity={0.8}
                     >
-                      <Video size={12} color={listener.status === 'busy' ? '#D97706' : '#2563EB'} />
-                      <Text
-                        style={[
-                          styles.listenerVideoBtnText,
-                          listener.status === 'busy' && { color: '#D97706' },
-                        ]}
-                      >
-                        {listener.status === 'busy' ? 'Busy' : 'Video ₹30'}
-                      </Text>
+                      <Phone size={12} color={THEME.colors.white} />
+                      <Text style={styles.listenerCallBtnText}>{listener.status === 'busy' ? 'Queue' : 'Call ₹9'}</Text>
                     </TouchableOpacity>
-                  )}
+
+                    {listener.isVideoEnabled && (
+                      <TouchableOpacity
+                        style={[
+                          styles.listenerVideoBtn,
+                          listener.status === 'busy' && { borderColor: '#F59E0B', backgroundColor: '#FEF3C7' },
+                        ]}
+                        onPress={() => onCallPress(listener, 'video')}
+                        activeOpacity={0.8}
+                      >
+                        <Video size={12} color={listener.status === 'busy' ? '#D97706' : '#2563EB'} />
+                        <Text
+                          style={[
+                            styles.listenerVideoBtnText,
+                            listener.status === 'busy' && { color: '#D97706' },
+                          ]}
+                        >
+                          {listener.status === 'busy' ? 'Busy' : 'Video ₹30'}
+                        </Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
                 </View>
               </View>
-            </View>
-          ))}
-        </View>
+            ))}
+          </View>
+        )}
 
         {/* Become a Listener Banner */}
         <TouchableOpacity
@@ -968,5 +983,48 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#64748B',
     fontWeight: '500',
+  },
+  emptyCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 32,
+    alignItems: 'center',
+    marginVertical: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  emptyIconCircle: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#EFF6FF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  emptyTitle: {
+    fontSize: 17,
+    fontWeight: '800',
+    color: '#0F172A',
+    marginBottom: 6,
+  },
+  emptySub: {
+    fontSize: 13,
+    color: '#64748B',
+    textAlign: 'center',
+    lineHeight: 19,
+    maxWidth: 320,
+    marginBottom: 16,
+  },
+  emptyHostBtn: {
+    backgroundColor: '#2563EB',
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    borderRadius: 12,
+  },
+  emptyHostBtnText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '800',
   },
 });

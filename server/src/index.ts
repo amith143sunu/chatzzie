@@ -383,30 +383,7 @@ export interface LiveSession {
   status: 'active' | 'terminated';
 }
 
-export let activeLiveSessions: LiveSession[] = [
-  {
-    id: 'sess-1',
-    channel: 'call_sonika_912',
-    listener: 'Sonika Verma (@sonika_912)',
-    caller: 'Amit (u-amit)',
-    type: 'audio',
-    startedMinutesAgo: 3,
-    ratePerMinINR: 9,
-    coinsBurned: 270,
-    status: 'active',
-  },
-  {
-    id: 'sess-2',
-    channel: 'call_jyoti__1',
-    listener: 'Jyoti Sharma (@jyoti__1)',
-    caller: 'Rohan Sharma (u-rohan)',
-    type: 'video',
-    startedMinutesAgo: 7,
-    ratePerMinINR: 30,
-    coinsBurned: 2100,
-    status: 'active',
-  }
-];
+export let activeLiveSessions: LiveSession[] = [];
 
 // Direct token generation endpoint for webRTC clients & testbeds
 app.get('/api/calls/token', (req, res) => {
@@ -431,7 +408,7 @@ app.get('/api/calls/token', (req, res) => {
       const newSess: LiveSession = {
         id: `sess-${Date.now()}`,
         channel,
-        caller: 'Amit (u-amit)',
+        caller: (req.query.caller as string) || 'Live Caller',
         listener: 'Host (' + channel.replace('call_', '@') + ')',
         type: callType,
         startedMinutesAgo: 0,
@@ -552,39 +529,15 @@ app.post('/api/host/toggle-status', (req, res) => {
 app.get('/api/host/workstation-data/:username', (req, res) => {
   const { username } = req.params;
   const listener = mockListeners.find(l => l.username === username);
-  const logs = hostCallLogs[username] || [
-    {
-      id: 'cl_init_1',
-      callerName: 'Amit (Caller)',
-      durationSeconds: 180,
-      earnedINR: 48.00,
-      callType: 'video',
-      timestamp: Date.now() - 3600000,
-    },
-    {
-      id: 'cl_init_2',
-      callerName: 'Rajesh K.',
-      durationSeconds: 240,
-      earnedINR: 18.00,
-      callType: 'audio',
-      timestamp: Date.now() - 7200000,
-    }
-  ];
-  const missed = hostMissedCalls[username] || [
-    {
-      id: 'mc_init_1',
-      callerName: 'Vikram Singh',
-      callerId: 'u_vikram',
-      timestamp: Date.now() - 1800000,
-    }
-  ];
+  const logs = hostCallLogs[username] || [];
+  const missed = hostMissedCalls[username] || [];
   const payouts = mockPayouts.filter(p => p.listenerName.toLowerCase().includes(username.toLowerCase()) || p.listenerId === listener?.id);
 
   res.json({
     success: true,
     status: activeHostStatus[username] || 'online',
-    totalEarnedINR: listener?.totalEarnedINR || 8420.00,
-    earningsBalanceINR: listener?.earningsBalanceINR || 2340.00,
+    totalEarnedINR: listener?.totalEarnedINR || 0,
+    earningsBalanceINR: listener?.earningsBalanceINR || 0,
     callLogs: logs,
     missedCalls: missed,
     payoutHistory: payouts,
@@ -702,21 +655,7 @@ interface ChatMessageItem {
   timeFormatted: string;
 }
 
-const chatDatabase: Record<string, ChatMessageItem[]> = {
-  'priyasharma___uamit': [
-    {
-      id: 'm_init_1',
-      senderId: 'u_priya',
-      senderName: 'Priya Sharma (Host)',
-      senderRole: 'host',
-      recipientId: 'u-amit',
-      recipientUsername: 'u-amit',
-      text: 'Hello! Welcome to Chatzie. Feel free to chat with me here or call whenever you are ready.',
-      timestamp: Date.now() - 3600000,
-      timeFormatted: '10:00 AM',
-    }
-  ]
-};
+const chatDatabase: Record<string, ChatMessageItem[]> = {};
 
 function getConvKey(u1: string, u2: string) {
   const c1 = (u1 || '').toLowerCase().trim().replace(/[^a-z0-9]/g, '');
@@ -818,30 +757,6 @@ app.get('/api/chat/host-conversations/:username', (req, res) => {
     }
   });
 
-  if (conversations.length === 0) {
-    conversations.push({
-      id: 'c_default',
-      callerName: 'Amit (Caller)',
-      avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=300&q=80',
-      lastMessage: 'Hello! I am ready to connect for a session.',
-      time: 'Just now',
-      unread: 1,
-      messages: [
-        {
-          id: 'm_def_1',
-          senderId: 'u_amit',
-          senderName: 'Amit (Caller)',
-          senderRole: 'caller',
-          recipientId: username,
-          recipientUsername: username,
-          text: 'Hello! I am ready to connect for a session.',
-          timestamp: Date.now(),
-          timeFormatted: 'Just now',
-        }
-      ]
-    });
-  }
-
   res.json({ success: true, conversations });
 });
 
@@ -889,23 +804,6 @@ app.get('/api/chat/caller-conversations', (req, res) => {
       });
     }
   });
-
-  // If user has no conversations yet, seed with top active online hosts so they can easily message
-  if (conversations.length === 0) {
-    mockListeners.slice(0, 4).forEach(l => {
-      conversations.push({
-        id: `conv_${l.username}`,
-        name: l.name,
-        username: l.username,
-        avatarUrl: l.avatarUrl,
-        lastMessage: 'Tap to start a private conversation or audio/video call.',
-        time: 'Active now',
-        unread: 0,
-        online: l.status === 'online',
-        listener: l,
-      });
-    });
-  }
 
   res.json({ success: true, conversations });
 });
@@ -987,7 +885,7 @@ app.post('/api/calls/start', (req, res) => {
     const newSess: LiveSession = {
       id: `sess-${Date.now()}`,
       channel: channel || `call_${Date.now()}`,
-      caller: caller || 'Amit (u-amit)',
+      caller: caller || 'Live Caller',
       listener: listener || 'Host',
       type: type === 'video' ? 'video' : 'audio',
       startedMinutesAgo: 0,
@@ -1005,9 +903,9 @@ app.post('/api/calls/start', (req, res) => {
 // Audio: ₹9/min caller -> ₹4.50/min listener | Video: ₹30/min caller -> ₹16/min listener
 app.post('/api/calls/end', (req, res) => {
   const { channel, durationSeconds, callerId = 'u-amit', listenerId, callType = 'audio' } = req.body;
-  const hostRatePerMin = callType === 'video' ? 16.0 : 4.5;
+  const ratePerMin = callType === 'video' ? platformPricingSettings.videoCallRateINR : platformPricingSettings.audioCallRateINR;
+  const hostRatePerMin = callType === 'video' ? platformPricingSettings.videoListenerPayoutINR : platformPricingSettings.audioListenerPayoutINR;
   const billedMinutes = Math.max(1, Math.ceil((Number(durationSeconds) || 0) / 60));
-  const ratePerMin = callType === 'video' ? 30.0 : 9.0;
   const callerCharged = Number((billedMinutes * ratePerMin).toFixed(2));
   const hostEarned = Number((billedMinutes * hostRatePerMin).toFixed(2));
   const platformRetained = Number((callerCharged - hostEarned).toFixed(2));
@@ -1122,9 +1020,9 @@ app.post('/api/calls/end', (req, res) => {
 // Chat message deduction: ₹0.25 text (listener gets ₹0.125), ₹0.75 image (listener gets ₹0.375)
 app.post('/api/chat/deduct', (req, res) => {
   const { callerId = 'u-amit', listenerId, type = 'text' } = req.body;
-  const callerCharged = type === 'image' ? 0.75 : 0.25;
-  const hostEarned = type === 'image' ? 0.375 : 0.125;
-  const platformRetained = Number((callerCharged - hostEarned).toFixed(3));
+  const callerCharged = type === 'image' ? platformPricingSettings.chatImageMessageRateINR : platformPricingSettings.chatTextMessageRateINR;
+  const hostEarned = Number((callerCharged * 0.5).toFixed(3)); // 50% split for host
+  const platformRetained = Number((callerCharged - hostEarned).toFixed(3)); // 50% split for platform
 
   const caller = mockUsers.find(u => u.id === callerId) || mockUsers[0];
   if (caller) {
@@ -1211,38 +1109,7 @@ export interface KYCApplication {
   upiId?: string;
 }
 
-let pendingKycApplications: KYCApplication[] = [
-  {
-    id: 'app-1',
-    name: 'Pooja Kashyap',
-    username: 'pooja_talks',
-    phone: '9876543210',
-    languages: ['Hindi', 'English'],
-    ratePerMinINR: 9,
-    isVideoEnabled: true,
-    bio: 'Post-graduate in psychology with 2 years of active empathetic counseling experience.',
-    panNumber: 'ABCDE9876Z',
-    voiceBioDurationSeconds: 24,
-    appliedAt: '2 hours ago',
-    avatarUrl: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=400&q=80',
-    upiId: 'pooja@okhdfcbank'
-  },
-  {
-    id: 'app-2',
-    name: 'Riya Malhotra',
-    username: 'riya_vibes',
-    phone: '9123456780',
-    languages: ['Hindi', 'Punjabi'],
-    ratePerMinINR: 9,
-    isVideoEnabled: false,
-    bio: 'Friendly conversationalist, passionate about music, daily talks, and easing evening stress.',
-    panNumber: 'MNOPQ5432K',
-    voiceBioDurationSeconds: 19,
-    appliedAt: 'Yesterday',
-    avatarUrl: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=400&q=80',
-    upiId: 'riya@okaxis'
-  }
-];
+let pendingKycApplications: KYCApplication[] = [];
 
 app.get('/api/admin/dashboard', (req, res) => {
   const liveCount = activeLiveSessions.filter(s => s.status === 'active').length;
@@ -1252,10 +1119,10 @@ app.get('/api/admin/dashboard', (req, res) => {
 
   res.json({
     activeCallsCount: liveCount,
-    totalTalkersCount: mockUsers.length + 1420,
+    totalTalkersCount: mockUsers.length,
     totalVerifiedListeners: mockListeners.length,
     pendingKYCCount: pendingKycApplications.length,
-    totalRechargeVolumeINR: totalRechargeVolume + 158200,
+    totalRechargeVolumeINR: totalRechargeVolume,
     pendingPayoutsVolumeINR: mockPayouts.filter(p => p.status === 'pending').reduce((sum, p) => sum + p.amountINR, 0),
     topLanguages: TOP_LANGUAGES.slice(0, 5),
   });
@@ -1556,15 +1423,15 @@ app.get('/api/listeners/:id/earnings', (req, res) => {
     .reduce((sum, p) => sum + p.amountINR, 0);
 
   const earningsSummary: ListenerEarningsSummary = {
-    listenerId: listener.id,
-    listenerName: listener.name,
-    totalEarnedINR: listener.totalEarnedINR || 8420.00,
-    availableBalanceINR: listener.earningsBalanceINR || 2340.00,
+    listenerId: listener?.id || 'host',
+    listenerName: listener?.name || 'Host',
+    totalEarnedINR: listener?.totalEarnedINR || 0,
+    availableBalanceINR: listener?.earningsBalanceINR || 0,
     totalWithdrawnINR: totalWithdrawn,
     pendingPayoutINR: pendingPayout,
-    totalAudioMinutes: Math.round(((listener.totalEarnedINR || 8420) * 0.7) / 4.5),
-    totalVideoMinutes: Math.round(((listener.totalEarnedINR || 8420) * 0.3) / 16.0),
-    totalChatMessages: 124,
+    totalAudioMinutes: listener?.totalEarnedINR ? Math.round(((listener.totalEarnedINR) * 0.7) / 4.5) : 0,
+    totalVideoMinutes: listener?.totalEarnedINR ? Math.round(((listener.totalEarnedINR) * 0.3) / 16.0) : 0,
+    totalChatMessages: 0,
   };
 
   res.json({

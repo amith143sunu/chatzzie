@@ -17,6 +17,7 @@ interface CallSummaryModalProps {
   durationSeconds: number;
   totalCostINR: number;
   newBalanceINR: number;
+  isHost?: boolean;
   onClose: () => void;
 }
 
@@ -27,6 +28,7 @@ export const CallSummaryModal: React.FC<CallSummaryModalProps> = ({
   durationSeconds,
   totalCostINR,
   newBalanceINR,
+  isHost = false,
   onClose,
 }) => {
   const [rating, setRating] = useState(5);
@@ -37,6 +39,9 @@ export const CallSummaryModal: React.FC<CallSummaryModalProps> = ({
     const s = secs % 60;
     return `${mins}m ${s}s`;
   };
+
+  const callerCoinsDeducted = Math.round(totalCostINR * 10);
+  const callerCoinsRemaining = Math.round(newBalanceINR * 10);
 
   return (
     <Modal visible={visible} transparent animationType="fade">
@@ -62,38 +67,46 @@ export const CallSummaryModal: React.FC<CallSummaryModalProps> = ({
             </View>
             <View style={styles.statDivider} />
             <View style={styles.statCol}>
-              <Text style={styles.statCurrency}>₹</Text>
-              <Text style={styles.statVal}>₹{totalCostINR.toFixed(2)}</Text>
-              <Text style={styles.statLbl}>Deducted</Text>
+              <Text style={styles.statCurrency}>{isHost ? '₹' : '💎'}</Text>
+              <Text style={styles.statVal}>
+                {isHost ? `₹${totalCostINR.toFixed(2)}` : `${callerCoinsDeducted}`}
+              </Text>
+              <Text style={styles.statLbl}>{isHost ? 'Earned' : 'Points Deducted'}</Text>
             </View>
             <View style={styles.statDivider} />
             <View style={styles.statCol}>
-              <Text style={styles.statCurrency}>₹</Text>
-              <Text style={styles.statVal}>₹{newBalanceINR.toFixed(2)}</Text>
-              <Text style={styles.statLbl}>Balance</Text>
+              <Text style={styles.statCurrency}>{isHost ? '₹' : '💎'}</Text>
+              <Text style={styles.statVal}>
+                {isHost ? `₹${newBalanceINR.toFixed(2)}` : `${callerCoinsRemaining}`}
+              </Text>
+              <Text style={styles.statLbl}>{isHost ? 'Earnings Bal' : 'Points Balance'}</Text>
             </View>
           </View>
 
-          {/* Rating Section */}
-          <Text style={styles.rateHeading}>Rate Your Experience</Text>
-          <View style={styles.starsRow}>
-            {[1, 2, 3, 4, 5].map((star) => (
-              <TouchableOpacity
-                key={star}
-                onPress={() => { setRating(star); setRated(true); }}
-                activeOpacity={0.8}
-              >
-                <Star
-                  size={28}
-                  color="#F59E0B"
-                  fill={star <= rating ? '#F59E0B' : 'transparent'}
-                />
-              </TouchableOpacity>
-            ))}
-          </View>
+          {/* Rating Section (For Callers) */}
+          {!isHost && (
+            <>
+              <Text style={styles.rateHeading}>Rate Your Experience</Text>
+              <View style={styles.starsRow}>
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <TouchableOpacity
+                    key={star}
+                    onPress={() => { setRating(star); setRated(true); }}
+                    activeOpacity={0.8}
+                  >
+                    <Star
+                      size={28}
+                      color="#F59E0B"
+                      fill={star <= rating ? '#F59E0B' : 'transparent'}
+                    />
+                  </TouchableOpacity>
+                ))}
+              </View>
 
-          {rated && (
-            <Text style={styles.thankYouText}>Thank you for your rating!</Text>
+              {rated && (
+                <Text style={styles.thankYouText}>Thank you for your rating!</Text>
+              )}
+            </>
           )}
 
           {/* Done Button */}

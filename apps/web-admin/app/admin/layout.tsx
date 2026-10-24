@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
@@ -14,7 +14,9 @@ import {
   ShieldAlert,
   LogOut,
   Radio,
-  MessageSquare
+  MessageSquare,
+  Lock,
+  ArrowRight
 } from 'lucide-react';
 
 const NAV_ITEMS = [
@@ -30,6 +32,113 @@ const NAV_ITEMS = [
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const [isAuthorized, setIsAuthorized] = useState<boolean>(false);
+  const [isCheckingAuth, setIsCheckingAuth] = useState<boolean>(true);
+  const [adminEmail, setAdminEmail] = useState('');
+  const [adminPass, setAdminPass] = useState('');
+  const [authError, setAuthError] = useState('');
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const auth = localStorage.getItem('chatzie_admin_auth');
+      if (auth === 'true') {
+        setIsAuthorized(true);
+      }
+    }
+    setIsCheckingAuth(false);
+  }, []);
+
+  const handleAdminLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleanEmail = adminEmail.trim().toLowerCase();
+    if (cleanEmail === 'amith@chatzzie.com' && adminPass === 'Admin@123') {
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('chatzie_admin_auth', 'true');
+      }
+      setIsAuthorized(true);
+      setAuthError('');
+    } else {
+      setAuthError('Invalid administrator credentials. Access denied.');
+    }
+  };
+
+  const handleAdminLogout = () => {
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('chatzie_admin_auth');
+    }
+    setIsAuthorized(false);
+  };
+
+  if (isCheckingAuth) {
+    return <div className="h-screen bg-slate-900 flex items-center justify-center text-slate-400">Loading...</div>;
+  }
+
+  // Password-Protected Admin Login Gate
+  if (!isAuthorized) {
+    return (
+      <div className="h-screen bg-slate-950 flex items-center justify-center p-4 font-sans">
+        <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-2xl p-8 shadow-2xl">
+          <div className="flex flex-col items-center text-center mb-6">
+            <div className="w-14 h-14 rounded-2xl bg-blue-600 flex items-center justify-center text-white shadow-lg shadow-blue-600/30 mb-4">
+              <Lock className="w-7 h-7" />
+            </div>
+            <h1 className="text-2xl font-bold text-white tracking-tight">Chatzie Master Console</h1>
+            <p className="text-xs text-slate-400 mt-1">
+              Restricted portal. Please verify your credentials to access the administrative dashboard.
+            </p>
+          </div>
+
+          {authError && (
+            <div className="mb-5 bg-red-500/10 border border-red-500/30 rounded-xl p-3 text-red-400 text-xs font-semibold text-center">
+              {authError}
+            </div>
+          )}
+
+          <form onSubmit={handleAdminLogin} className="space-y-4">
+            <div>
+              <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                Admin Email / Username
+              </label>
+              <input
+                type="text"
+                required
+                value={adminEmail}
+                onChange={(e) => setAdminEmail(e.target.value)}
+                placeholder="amith@chatzzie.com"
+                className="w-full px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                Security Password
+              </label>
+              <input
+                type="password"
+                required
+                value={adminPass}
+                onChange={(e) => setAdminPass(e.target.value)}
+                placeholder="••••••••••••"
+                className="w-full px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
+              />
+            </div>
+
+            <button
+              type="submit"
+              className="w-full mt-2 py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-bold text-sm flex items-center justify-center gap-2 shadow-lg shadow-blue-600/20 transition cursor-pointer"
+            >
+              Sign In to Backoffice
+              <ArrowRight className="w-4 h-4" />
+            </button>
+          </form>
+
+          <div className="mt-6 text-center text-slate-600 text-[11px]">
+            Authorized personnel only • IP & session activity monitored
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-screen bg-slate-50 font-sans text-slate-900">
@@ -80,13 +189,20 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               AD
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-xs font-semibold text-slate-900 truncate">Super Admin</p>
+              <p className="text-xs font-semibold text-slate-900 truncate">amith@chatzzie.com</p>
               <div className="flex items-center gap-1.5">
                 <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                <span className="text-[11px] text-slate-500">Live Server</span>
+                <span className="text-[11px] text-slate-500">Master Admin</span>
               </div>
             </div>
           </div>
+          <button
+            onClick={handleAdminLogout}
+            className="mt-2 w-full flex items-center justify-center gap-1.5 py-1.5 text-xs text-red-600 hover:bg-red-50 rounded-md font-semibold transition cursor-pointer"
+          >
+            <LogOut className="w-3.5 h-3.5" />
+            Sign Out Admin
+          </button>
         </div>
       </aside>
 

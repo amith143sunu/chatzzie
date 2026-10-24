@@ -9,7 +9,7 @@ import {
   TextInput,
   Alert,
 } from 'react-native';
-import { Bell, Search, ChevronRight, CheckCheck } from 'lucide-react-native';
+import { Bell, Search, ChevronRight, CheckCheck, MessageSquare } from 'lucide-react-native';
 import { HeaderBar } from '../components/HeaderBar';
 import { THEME } from '../theme';
 import { getApiBaseUrl } from '../services/apiConfig';
@@ -33,18 +33,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
 }) => {
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [conversations, setConversations] = useState<any[]>([
-    {
-      id: 'c-1',
-      name: 'Priya Sharma',
-      username: 'priya_sharma',
-      avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80',
-      lastMessage: 'Thanks for connecting! Send me a message or call whenever you are ready.',
-      time: 'Just now',
-      unread: 0,
-      online: true,
-    }
-  ]);
+  const [conversations, setConversations] = useState<any[]>([]);
 
   // Real-Time Caller Conversations Poller
   useEffect(() => {
@@ -134,45 +123,57 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.listContent}
       >
-        {(searchQuery.trim()
-          ? conversations.filter(c => c.name.toLowerCase().includes(searchQuery.toLowerCase()) || (c.lastMessage && c.lastMessage.toLowerCase().includes(searchQuery.toLowerCase())))
-          : conversations
-        ).map((chat) => (
-          <TouchableOpacity
-            key={chat.id}
-            style={styles.chatRow}
-            onPress={() => onConversationPress(chat)}
-            activeOpacity={0.85}
-          >
-            {/* Avatar */}
-            <View style={styles.avatarWrapper}>
-              <Image source={{ uri: chat.avatarUrl }} style={styles.avatar} />
-              {chat.online && <View style={styles.onlineDot} />}
+        {conversations.length === 0 ? (
+          <View style={styles.emptyCard}>
+            <View style={styles.emptyIconCircle}>
+              <MessageSquare size={28} color="#2563EB" />
             </View>
-
-            {/* Content */}
-            <View style={styles.chatContent}>
-              <View style={styles.chatTopRow}>
-                <Text style={styles.chatName}>{chat.name}</Text>
-                <Text style={styles.chatTime}>{chat.time}</Text>
+            <Text style={styles.emptyTitle}>No Conversations Yet</Text>
+            <Text style={styles.emptySub}>
+              Once a host comes online, you can tap on their profile to start a live 1:1 chat or call session.
+            </Text>
+          </View>
+        ) : (
+          (searchQuery.trim()
+            ? conversations.filter(c => c.name.toLowerCase().includes(searchQuery.toLowerCase()) || (c.lastMessage && c.lastMessage.toLowerCase().includes(searchQuery.toLowerCase())))
+            : conversations
+          ).map((chat) => (
+            <TouchableOpacity
+              key={chat.id}
+              style={styles.chatRow}
+              onPress={() => onConversationPress(chat)}
+              activeOpacity={0.85}
+            >
+              {/* Avatar */}
+              <View style={styles.avatarWrapper}>
+                <Image source={{ uri: chat.avatarUrl }} style={styles.avatar} />
+                {chat.online && <View style={styles.onlineDot} />}
               </View>
 
-              <View style={styles.chatBottomRow}>
-                <Text style={styles.lastMessage} numberOfLines={1}>
-                  {chat.lastMessage}
-                </Text>
+              {/* Content */}
+              <View style={styles.chatContent}>
+                <View style={styles.chatTopRow}>
+                  <Text style={styles.chatName}>{chat.name}</Text>
+                  <Text style={styles.chatTime}>{chat.time}</Text>
+                </View>
 
-                {chat.unread > 0 ? (
-                  <View style={styles.unreadBadge}>
-                    <Text style={styles.unreadText}>{chat.unread}</Text>
-                  </View>
-                ) : (
-                  <CheckCheck size={14} color={THEME.colors.primaryLight} />
-                )}
+                <View style={styles.chatBottomRow}>
+                  <Text style={styles.lastMessage} numberOfLines={1}>
+                    {chat.lastMessage}
+                  </Text>
+
+                  {chat.unread > 0 ? (
+                    <View style={styles.unreadBadge}>
+                      <Text style={styles.unreadText}>{chat.unread}</Text>
+                    </View>
+                  ) : (
+                    <CheckCheck size={14} color={THEME.colors.primaryLight} />
+                  )}
+                </View>
               </View>
-            </View>
-          </TouchableOpacity>
-        ))}
+            </TouchableOpacity>
+          ))
+        )}
       </ScrollView>
     </View>
   );
@@ -311,5 +312,37 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#64748B',
     marginTop: 4,
+  },
+  emptyCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 32,
+    alignItems: 'center',
+    marginVertical: 40,
+    marginHorizontal: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  emptyIconCircle: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#EFF6FF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  emptyTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#0F172A',
+    marginBottom: 6,
+  },
+  emptySub: {
+    fontSize: 13,
+    color: '#64748B',
+    textAlign: 'center',
+    lineHeight: 18,
+    maxWidth: 280,
   },
 });

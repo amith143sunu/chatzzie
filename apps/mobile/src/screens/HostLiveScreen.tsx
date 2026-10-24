@@ -73,9 +73,9 @@ export const HostLiveScreen: React.FC<HostLiveScreenProps> = ({
 
   const [activeTab, setActiveTab] = useState<HostTab>('radar');
   const [isLive, setIsLive] = useState(true);
-  const [totalEarningsINR, setTotalEarningsINR] = useState(8420.00);
-  const [availableBalanceINR, setAvailableBalanceINR] = useState(2340.00);
-  const [completedCallsCount, setCompletedCallsCount] = useState(14);
+  const [totalEarningsINR, setTotalEarningsINR] = useState(0.00);
+  const [availableBalanceINR, setAvailableBalanceINR] = useState(0.00);
+  const [completedCallsCount, setCompletedCallsCount] = useState(0);
   const [incomingCall, setIncomingCall] = useState<any>(null);
   const [isChimePlaying, setIsChimePlaying] = useState(false);
 
@@ -86,38 +86,13 @@ export const HostLiveScreen: React.FC<HostLiveScreenProps> = ({
   const [isLoadingWorkstation, setIsLoadingWorkstation] = useState(false);
 
   // Payout Form State
-  const [payoutAmount, setPayoutAmount] = useState('500');
-  const [payoutUPI, setPayoutUPI] = useState(`${hostUsername.toLowerCase()}@paytm`);
+  const [payoutAmount, setPayoutAmount] = useState('200');
+  const [payoutUPI, setPayoutUPI] = useState('');
   const [isSubmittingPayout, setIsSubmittingPayout] = useState(false);
   const [payoutSuccessMsg, setPayoutSuccessMsg] = useState('');
 
   // Host Chat Inbox State
-  const [chatConversations, setChatConversations] = useState([
-    {
-      id: 'c-amit',
-      callerName: 'Amit (Caller)',
-      avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=300&q=80',
-      lastMessage: 'Thank you for listening earlier! That really helped me calm down.',
-      time: '10 mins ago',
-      unread: 1,
-      messages: [
-        { id: '1', sender: 'caller', text: 'Hey, are you free for a call?', time: '10:15 AM' },
-        { id: '2', sender: 'host', text: 'Yes, I am live on my console right now!', time: '10:16 AM' },
-        { id: '3', sender: 'caller', text: 'Thank you for listening earlier! That really helped me calm down.', time: '10:25 AM' },
-      ],
-    },
-    {
-      id: 'c-vikram',
-      callerName: 'Vikram Singh',
-      avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=300&q=80',
-      lastMessage: 'Missed your call earlier. Let me know when you are back on air!',
-      time: '45 mins ago',
-      unread: 0,
-      messages: [
-        { id: '1', sender: 'caller', text: 'Missed your call earlier. Let me know when you are back on air!', time: '9:40 AM' },
-      ],
-    },
-  ]);
+  const [chatConversations, setChatConversations] = useState<any[]>([]);
   const [activeChatCaller, setActiveChatCaller] = useState<any>(null);
   const [hostReplyText, setHostReplyText] = useState('');
   const [policyViolationModal, setPolicyViolationModal] = useState<{ visible: boolean; reason: string }>({
@@ -698,29 +673,41 @@ export const HostLiveScreen: React.FC<HostLiveScreenProps> = ({
               </View>
 
               <ScrollView>
-                {chatConversations.map(c => (
-                  <TouchableOpacity
-                    key={c.id}
-                    style={[
-                      styles.conversationItem,
-                      activeChatCaller?.id === c.id && styles.conversationItemActive,
-                    ]}
-                    onPress={() => setActiveChatCaller(c)}
-                    activeOpacity={0.85}
-                  >
-                    <Image source={{ uri: c.avatar }} style={styles.callerAvatar} />
-                    <View style={{ flex: 1, marginLeft: 10 }}>
-                      <View style={styles.convHeaderRow}>
-                        <Text style={styles.callerNameText}>{c.callerName}</Text>
-                        <Text style={styles.convTimeText}>{c.time}</Text>
+                {chatConversations.length > 0 ? (
+                  chatConversations.map(c => (
+                    <TouchableOpacity
+                      key={c.id}
+                      style={[
+                        styles.conversationItem,
+                        activeChatCaller?.id === c.id && styles.conversationItemActive,
+                      ]}
+                      onPress={() => setActiveChatCaller(c)}
+                      activeOpacity={0.85}
+                    >
+                      <Image source={{ uri: c.avatar }} style={styles.callerAvatar} />
+                      <View style={{ flex: 1, marginLeft: 10 }}>
+                        <View style={styles.convHeaderRow}>
+                          <Text style={styles.callerNameText}>{c.callerName}</Text>
+                          <Text style={styles.convTimeText}>{c.time}</Text>
+                        </View>
+                        <Text style={styles.convLastMsg} numberOfLines={1}>
+                          {c.lastMessage}
+                        </Text>
                       </View>
-                      <Text style={styles.convLastMsg} numberOfLines={1}>
-                        {c.lastMessage}
-                      </Text>
-                    </View>
-                    {c.unread > 0 && <View style={styles.unreadDot} />}
-                  </TouchableOpacity>
-                ))}
+                      {c.unread > 0 && <View style={styles.unreadDot} />}
+                    </TouchableOpacity>
+                  ))
+                ) : (
+                  <View style={{ padding: 32, alignItems: 'center', justifyContent: 'center' }}>
+                    <MessageSquare size={36} color="#94A3B8" />
+                    <Text style={{ fontSize: 14, fontWeight: '700', color: '#64748B', marginTop: 12 }}>
+                      No Conversations Yet
+                    </Text>
+                    <Text style={{ fontSize: 12, color: '#94A3B8', textAlign: 'center', marginTop: 6, lineHeight: 18 }}>
+                      When callers send you a message, they will appear here in real-time.
+                    </Text>
+                  </View>
+                )}
               </ScrollView>
             </View>
           )}
@@ -878,36 +865,43 @@ export const HostLiveScreen: React.FC<HostLiveScreenProps> = ({
               <Text style={styles.sectionBadgeText}>{callLogs.length} Total Calls</Text>
             </View>
 
-            {callLogs.map((cl, idx) => (
-              <View key={idx} style={styles.callLogRow}>
-                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                  <View
-                    style={[
-                      styles.callTypeBadge,
-                      cl.callType === 'video' ? styles.callTypeVideo : styles.callTypeAudio,
-                    ]}
-                  >
-                    {cl.callType === 'video' ? (
-                      <Video size={14} color="#059669" />
-                    ) : (
-                      <PhoneCall size={14} color="#2563EB" />
-                    )}
+            {callLogs.length > 0 ? (
+              callLogs.map((cl, idx) => (
+                <View key={idx} style={styles.callLogRow}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <View
+                      style={[
+                        styles.callTypeBadge,
+                        cl.callType === 'video' ? styles.callTypeVideo : styles.callTypeAudio,
+                      ]}
+                    >
+                      {cl.callType === 'video' ? (
+                        <Video size={14} color="#059669" />
+                      ) : (
+                        <PhoneCall size={14} color="#2563EB" />
+                      )}
+                    </View>
+                    <View style={{ marginLeft: 10 }}>
+                      <Text style={styles.callLogName}>{cl.callerName}</Text>
+                      <Text style={styles.callLogSub}>
+                        {cl.callType === 'video' ? 'Video Call' : 'Voice Call'} •{' '}
+                        {Math.floor(cl.durationSeconds / 60)}m {cl.durationSeconds % 60}s
+                      </Text>
+                    </View>
                   </View>
-                  <View style={{ marginLeft: 10 }}>
-                    <Text style={styles.callLogName}>{cl.callerName}</Text>
-                    <Text style={styles.callLogSub}>
-                      {cl.callType === 'video' ? 'Video Call' : 'Voice Call'} •{' '}
-                      {Math.floor(cl.durationSeconds / 60)}m {cl.durationSeconds % 60}s
-                    </Text>
-                  </View>
-                </View>
 
-                <View style={styles.callLogEarning}>
-                  <Text style={styles.callLogEarningAmount}>+₹{cl.earnedINR.toFixed(2)}</Text>
-                  <Text style={styles.callLogEarningLabel}>Credited to Wallet</Text>
+                  <View style={styles.callLogEarning}>
+                    <Text style={styles.callLogEarningAmount}>+₹{cl.earnedINR.toFixed(2)}</Text>
+                    <Text style={styles.callLogEarningLabel}>Credited to Wallet</Text>
+                  </View>
                 </View>
+              ))
+            ) : (
+              <View style={styles.emptyLogRow}>
+                <Clock size={16} color="#94A3B8" />
+                <Text style={styles.emptyLogText}>No calls completed yet. When callers dial, history will show here.</Text>
               </View>
-            ))}
+            )}
           </View>
         </ScrollView>
       )}

@@ -13,6 +13,7 @@ export interface User {
   role: UserRole;
   isListenerVerified: boolean;
   preferredLanguages: string[];
+  isBanned?: boolean;
   createdAt: string;
 }
 

@@ -368,23 +368,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
               100% Anonymous & Encrypted • Zero Spam • Sandbox Test Mode
             </Text>
           </View>
-
-          {/* Admin Backoffice Direct Link */}
-          <TouchableOpacity
-            style={styles.adminPortalLink}
-            onPress={() => {
-              if (typeof window !== 'undefined') {
-                const newWin = window.open('/admin', '_blank');
-                if (!newWin) {
-                  window.location.href = '/admin';
-                }
-              }
-            }}
-            activeOpacity={0.8}
-          >
-            <ShieldAlert size={13} color="#94A3B8" />
-            <Text style={styles.adminPortalLinkText}>Admin Management Portal (/admin)</Text>
-          </TouchableOpacity>
         </View>
       </ScrollView>
     </View>

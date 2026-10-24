@@ -23,8 +23,14 @@ import { getApiBaseUrl } from '../apiConfig';
 export default function PricingCouponsPage() {
   const [packages, setPackages] = useState<RechargePackage[]>(DEFAULT_RECHARGE_PACKAGES);
   const [coupons, setCoupons] = useState<Coupon[]>(DEFAULT_COUPONS);
-  const [platformCommission, setPlatformCommission] = useState(50); // 50% split for Voice (4.5 / 9)
+  const [platformCommission, setPlatformCommission] = useState(50); // 50% split default
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  // Editable Tariff Inputs
+  const [voiceRate, setVoiceRate] = useState('9.00');
+  const [videoRate, setVideoRate] = useState('30.00');
+  const [chatTextRate, setChatTextRate] = useState('0.25');
+  const [chatPhotoRate, setChatPhotoRate] = useState('0.75');
 
   // Modals
   const [showAddPackage, setShowAddPackage] = useState(false);
@@ -50,8 +56,12 @@ export default function PricingCouponsPage() {
         const res = await fetch(`${baseUrl}/api/admin/pricing`);
         if (res.ok) {
           const data = await res.json();
-          if (data.pricing?.platformCommissionPercent) {
-            setPlatformCommission(data.pricing.platformCommissionPercent);
+          if (data.pricing) {
+            if (data.pricing.audioCallRateINR) setVoiceRate(String(data.pricing.audioCallRateINR));
+            if (data.pricing.videoCallRateINR) setVideoRate(String(data.pricing.videoCallRateINR));
+            if (data.pricing.chatTextMessageRateINR) setChatTextRate(String(data.pricing.chatTextMessageRateINR));
+            if (data.pricing.chatImageMessageRateINR) setChatPhotoRate(String(data.pricing.chatImageMessageRateINR));
+            if (data.pricing.platformCommissionPercent) setPlatformCommission(data.pricing.platformCommissionPercent);
           }
           if (data.rechargePackages) setPackages(data.rechargePackages);
           if (data.coupons) setCoupons(data.coupons);
@@ -61,16 +71,36 @@ export default function PricingCouponsPage() {
     fetchPricing();
   }, []);
 
-  const handleSaveCommission = async () => {
+  const handleSaveAllPricing = async () => {
+    const vRate = parseFloat(voiceRate) || 9.0;
+    const vidRate = parseFloat(videoRate) || 30.0;
+    const cTextRate = parseFloat(chatTextRate) || 0.25;
+    const cPhotoRate = parseFloat(chatPhotoRate) || 0.75;
+    const hostSplitFrac = (100 - platformCommission) / 100;
+
     try {
       const baseUrl = getApiBaseUrl();
       await fetch(`${baseUrl}/api/admin/pricing`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ platformCommissionPercent: platformCommission }),
+        body: JSON.stringify({
+          audioCallRateINR: vRate,
+          audioListenerPayoutINR: Number((vRate * hostSplitFrac).toFixed(2)),
+          videoCallRateINR: vidRate,
+          videoListenerPayoutINR: Number((vidRate * hostSplitFrac).toFixed(2)),
+          chatTextMessageRateINR: cTextRate,
+          chatImageMessageRateINR: cPhotoRate,
+          platformCommissionPercent: platformCommission,
+        }),
       });
-    } catch (e) {}
-    showToast(`Platform commission saved at ${platformCommission}% (Listener payout: ${100 - platformCommission}%)`);
+      showToast('All Tariff, Pricing & 50% Chat Split changes saved successfully!');
+    } catch (e) {
+      showToast('Failed to save pricing changes');
+    }
+  };
+
+  const handleSaveCommission = async () => {
+    handleSaveAllPricing();
   };
 
   const handleAddPackage = (e: React.FormEvent) => {
@@ -135,14 +165,22 @@ export default function PricingCouponsPage() {
       )}
 
       {/* Header */}
-      <div>
-        <h2 className="text-2xl font-bold text-slate-900 tracking-tight">Tariff, Pricing & Revenue Controls</h2>
-        <p className="text-sm text-slate-500 mt-1">
-          Enforce universal per-minute call tariffs, chat rates, mobile recharge packages, and platform commission splits.
-        </p>
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h2 className="text-2xl font-bold text-slate-900 tracking-tight">Tariff, Pricing & Revenue Controls</h2>
+          <p className="text-sm text-slate-500 mt-1">
+            Edit and enforce universal per-minute call tariffs, chat rates, mobile recharge packages, and 50/50 revenue splits.
+          </p>
+        </div>
+        <button
+          onClick={handleSaveAllPricing}
+          className="flex items-center gap-2 px-5 py-2.5 bg-blue-700 hover:bg-blue-800 text-white rounded-xl text-sm font-bold shadow-md transition cursor-pointer shrink-0"
+        >
+          <Save className="w-4 h-4" /> Save All Pricing & Splits
+        </button>
       </div>
 
-      {/* Universal Tariff Cards Grid (User Specified Business Logic) */}
+      {/* Universal Tariff Cards Grid (Fully Editable Live Inputs) */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Voice Calls */}
         <div className="bg-white p-5 rounded-xl border border-blue-200 shadow-sm relative overflow-hidden">
@@ -153,17 +191,28 @@ export default function PricingCouponsPage() {
             </div>
           </div>
           <div className="mt-3">
-            <div className="flex items-baseline gap-1">
-              <span className="text-2xl font-extrabold text-slate-900">₹9.00</span>
+            <div className="flex items-center gap-1.5">
+              <span className="text-2xl font-black text-slate-900">₹</span>
+              <input
+                type="number"
+                step="0.5"
+                value={voiceRate}
+                onChange={(e) => setVoiceRate(e.target.value)}
+                className="w-24 px-2.5 py-1 text-2xl font-black text-slate-900 bg-slate-50 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
+              />
               <span className="text-xs text-slate-500">/ min (Caller)</span>
             </div>
-            <div className="mt-2 pt-2 border-t border-slate-100 flex items-center justify-between text-xs">
-              <span className="text-slate-500">Host Payout:</span>
-              <span className="font-bold text-emerald-600">₹4.50 / min (50%)</span>
+            <div className="mt-3 pt-2 border-t border-slate-100 flex items-center justify-between text-xs">
+              <span className="text-slate-500">Host Payout ({100 - platformCommission}%):</span>
+              <span className="font-bold text-emerald-600">
+                ₹{((parseFloat(voiceRate) || 0) * (100 - platformCommission) / 100).toFixed(2)} / min
+              </span>
             </div>
             <div className="flex items-center justify-between text-xs mt-1">
-              <span className="text-slate-500">Platform Retains:</span>
-              <span className="font-bold text-blue-700">₹4.50 / min (50%)</span>
+              <span className="text-slate-500">Platform Retains ({platformCommission}%):</span>
+              <span className="font-bold text-blue-700">
+                ₹{((parseFloat(voiceRate) || 0) * platformCommission / 100).toFixed(2)} / min
+              </span>
             </div>
           </div>
         </div>
@@ -177,17 +226,28 @@ export default function PricingCouponsPage() {
             </div>
           </div>
           <div className="mt-3">
-            <div className="flex items-baseline gap-1">
-              <span className="text-2xl font-extrabold text-slate-900">₹30.00</span>
+            <div className="flex items-center gap-1.5">
+              <span className="text-2xl font-black text-slate-900">₹</span>
+              <input
+                type="number"
+                step="1"
+                value={videoRate}
+                onChange={(e) => setVideoRate(e.target.value)}
+                className="w-24 px-2.5 py-1 text-2xl font-black text-slate-900 bg-slate-50 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:outline-none"
+              />
               <span className="text-xs text-slate-500">/ min (Caller)</span>
             </div>
-            <div className="mt-2 pt-2 border-t border-slate-100 flex items-center justify-between text-xs">
-              <span className="text-slate-500">Host Payout:</span>
-              <span className="font-bold text-emerald-600">₹16.00 / min (53.3%)</span>
+            <div className="mt-3 pt-2 border-t border-slate-100 flex items-center justify-between text-xs">
+              <span className="text-slate-500">Host Payout ({100 - platformCommission}%):</span>
+              <span className="font-bold text-emerald-600">
+                ₹{((parseFloat(videoRate) || 0) * (100 - platformCommission) / 100).toFixed(2)} / min
+              </span>
             </div>
             <div className="flex items-center justify-between text-xs mt-1">
-              <span className="text-slate-500">Platform Retains:</span>
-              <span className="font-bold text-purple-700">₹14.00 / min (46.7%)</span>
+              <span className="text-slate-500">Platform Retains ({platformCommission}%):</span>
+              <span className="font-bold text-purple-700">
+                ₹{((parseFloat(videoRate) || 0) * platformCommission / 100).toFixed(2)} / min
+              </span>
             </div>
           </div>
         </div>
@@ -201,11 +261,29 @@ export default function PricingCouponsPage() {
             </div>
           </div>
           <div className="mt-3">
-            <div className="flex items-baseline gap-1">
-              <span className="text-2xl font-extrabold text-slate-900">₹0.25</span>
-              <span className="text-xs text-slate-500">/ text message</span>
+            <div className="flex items-center gap-1.5">
+              <span className="text-2xl font-black text-slate-900">₹</span>
+              <input
+                type="number"
+                step="0.05"
+                value={chatTextRate}
+                onChange={(e) => setChatTextRate(e.target.value)}
+                className="w-24 px-2.5 py-1 text-2xl font-black text-slate-900 bg-slate-50 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+              />
+              <span className="text-xs text-slate-500">/ message</span>
             </div>
-            <p className="text-xs text-slate-400 mt-2">Deducted from caller wallet per message sent</p>
+            <div className="mt-3 pt-2 border-t border-slate-100 flex items-center justify-between text-xs">
+              <span className="text-slate-500">Host Share (50%):</span>
+              <span className="font-bold text-emerald-600">
+                ₹{((parseFloat(chatTextRate) || 0) * 0.5).toFixed(3)}
+              </span>
+            </div>
+            <div className="flex items-center justify-between text-xs mt-1">
+              <span className="text-slate-500">Platform Share (50%):</span>
+              <span className="font-bold text-blue-700">
+                ₹{((parseFloat(chatTextRate) || 0) * 0.5).toFixed(3)}
+              </span>
+            </div>
           </div>
         </div>
 
@@ -218,11 +296,29 @@ export default function PricingCouponsPage() {
             </div>
           </div>
           <div className="mt-3">
-            <div className="flex items-baseline gap-1">
-              <span className="text-2xl font-extrabold text-slate-900">₹0.75</span>
+            <div className="flex items-center gap-1.5">
+              <span className="text-2xl font-black text-slate-900">₹</span>
+              <input
+                type="number"
+                step="0.05"
+                value={chatPhotoRate}
+                onChange={(e) => setChatPhotoRate(e.target.value)}
+                className="w-24 px-2.5 py-1 text-2xl font-black text-slate-900 bg-slate-50 border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:outline-none"
+              />
               <span className="text-xs text-slate-500">/ image sent</span>
             </div>
-            <p className="text-xs text-slate-400 mt-2">Deducted from caller wallet per photo uploaded</p>
+            <div className="mt-3 pt-2 border-t border-slate-100 flex items-center justify-between text-xs">
+              <span className="text-slate-500">Host Share (50%):</span>
+              <span className="font-bold text-emerald-600">
+                ₹{((parseFloat(chatPhotoRate) || 0) * 0.5).toFixed(3)}
+              </span>
+            </div>
+            <div className="flex items-center justify-between text-xs mt-1">
+              <span className="text-slate-500">Platform Share (50%):</span>
+              <span className="font-bold text-amber-700">
+                ₹{((parseFloat(chatPhotoRate) || 0) * 0.5).toFixed(3)}
+              </span>
+            </div>
           </div>
         </div>
       </div>

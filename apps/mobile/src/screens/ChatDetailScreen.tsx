@@ -98,26 +98,7 @@ export const ChatDetailScreen: React.FC<ChatDetailScreenProps> = ({
     visible: false,
     reason: '',
   });
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: 'm1',
-      sender: 'partner',
-      text: `Hello! Nice to connect with you on Chatzie. How has your day been?`,
-      time: '10:05 AM',
-    },
-    {
-      id: 'm2',
-      sender: 'user',
-      text: 'Hey! Work was quite busy today, just wanted someone neutral to talk with and relax.',
-      time: '10:08 AM',
-    },
-    {
-      id: 'm3',
-      sender: 'partner',
-      text: 'I completely understand! Take a deep breath. We can chat here or hop on a quick audio call whenever you feel like.',
-      time: '10:10 AM',
-    }
-  ]);
+  const [messages, setMessages] = useState<Message[]>([]);
 
   // Real-Time Chat Thread Poller
   useEffect(() => {
@@ -130,7 +111,7 @@ export const ChatDetailScreen: React.FC<ChatDetailScreenProps> = ({
         const res = await fetch(`${baseUrl}/api/chat/thread?user1=${encodeURIComponent(effectiveCaller)}&user2=${encodeURIComponent(effectiveHost)}`);
         if (res.ok) {
           const data = await res.json();
-          if (data.success && Array.isArray(data.messages) && data.messages.length > 0 && isMounted) {
+          if (data.success && Array.isArray(data.messages) && isMounted) {
             const mapped = data.messages.map((m: any) => ({
               id: m.id,
               sender: m.senderRole === 'caller' ? 'user' : 'partner',
@@ -360,7 +341,21 @@ export const ChatDetailScreen: React.FC<ChatDetailScreenProps> = ({
         contentContainerStyle={styles.messagesContent}
         showsVerticalScrollIndicator={false}
       >
-        {messages.map((msg) => {
+        {messages.length === 0 ? (
+          <View style={{ alignItems: 'center', justifyContent: 'center', paddingVertical: 48, paddingHorizontal: 24 }}>
+            <Image
+              source={{ uri: partnerAvatar || 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=300&q=80' }}
+              style={{ width: 68, height: 68, borderRadius: 34, marginBottom: 14, borderWidth: 2, borderColor: THEME.colors.primary }}
+            />
+            <Text style={{ fontSize: 16, fontWeight: '700', color: THEME.colors.textPrimary }}>
+              Start Chatting with {partnerName}
+            </Text>
+            <Text style={{ fontSize: 12, color: THEME.colors.textSecondary, textAlign: 'center', marginTop: 6, lineHeight: 18, maxWidth: 280 }}>
+              Send a safe, anonymous text or photo message. Remember, phone numbers and social handles are strictly prohibited.
+            </Text>
+          </View>
+        ) : (
+          messages.map((msg) => {
           const isUser = msg.sender === 'user';
           return (
             <View
@@ -407,7 +402,7 @@ export const ChatDetailScreen: React.FC<ChatDetailScreenProps> = ({
               </View>
             </View>
           );
-        })}
+        }))}
       </ScrollView>
 
       {/* Quick Icebreakers */}

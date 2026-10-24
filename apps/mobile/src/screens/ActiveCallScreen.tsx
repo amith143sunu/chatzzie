@@ -26,7 +26,9 @@ import {
   Bell,
   Activity,
   AlertCircle,
-  Sparkles
+  Sparkles,
+  Clock,
+  Coins
 } from 'lucide-react-native';
 import { ListenerProfile } from '@chatzie/shared';
 import { THEME } from '../theme';
@@ -383,27 +385,63 @@ export const ActiveCallScreen: React.FC<ActiveCallScreenProps> = ({
     }
   };
 
-  // Universal Tariff: Video ₹30/min (host earns ₹16), Audio ₹9/min (host earns ₹4.50)
-  const effectiveRatePerMinINR = isHost
-    ? (callType === 'video' ? 16 : 4.5)
-    : (callType === 'video' ? 30 : 9);
+  // Dynamic Tariff Settings fetched from Admin Backoffice
+  const [pricingSettings, setPricingSettings] = useState({
+    audioCallRateINR: 9.0,
+    audioListenerPayoutINR: 4.5,
+    videoCallRateINR: 30.0,
+    videoListenerPayoutINR: 16.0,
+  });
 
-  // Timer & Per-Minute Balance Deduction
+  useEffect(() => {
+    const fetchPricing = async () => {
+      try {
+        const baseUrl = getApiBaseUrl();
+        const res = await fetch(`${baseUrl}/api/admin/pricing`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.pricing) {
+            setPricingSettings(data.pricing);
+          }
+        }
+      } catch (e) {}
+    };
+    fetchPricing();
+  }, []);
+
+  const callerRatePerMinINR = callType === 'video' ? pricingSettings.videoCallRateINR : pricingSettings.audioCallRateINR;
+  const hostRatePerMinINR = callType === 'video' ? pricingSettings.videoListenerPayoutINR : pricingSettings.audioListenerPayoutINR;
+  const effectiveRatePerMinINR = isHost ? hostRatePerMinINR : callerRatePerMinINR;
+
+  // Caller points/coins: 1 INR = 10 Coins
+  const callerRateInCoins = Math.round(callerRatePerMinINR * 10);
+  const [extraCoinsAdded, setExtraCoinsAdded] = useState(0);
+  const totalCallerCoins = Math.max(0, Math.round(userBalanceINR * 10)) + extraCoinsAdded;
+
+  // Maximum call time caller can afford with available coins
+  const maxCallSeconds = Math.max(0, Math.floor((totalCallerCoins / Math.max(1, callerRateInCoins)) * 60));
+  const secondsLeft = Math.max(0, maxCallSeconds - secondsElapsed);
+
+  // Minutes billed and real-time deductions
+  const billedMinutes = Math.max(1, Math.ceil(secondsElapsed / 60));
+  const callerCoinsDeducted = Math.min(totalCallerCoins, billedMinutes * callerRateInCoins);
+  const callerCoinsRemaining = Math.max(0, totalCallerCoins - callerCoinsDeducted);
+
+  // Host Real-Time INR Earnings (Host NEVER sees coins or points)
+  const hostEarnedINR = billedMinutes * hostRatePerMinINR;
+
+  // Real-time Timer & Auto-Termination when Caller Points deplete
   useEffect(() => {
     const timer = setInterval(() => {
       setSecondsElapsed((prev) => {
         const nextSeconds = prev + 1;
 
-        // Every 60 seconds, deduct 1 minute call tariff ONLY for callers (not hosts)
-        if (nextSeconds % 60 === 0 && !isHost) {
-          setRemainingBalance((curBal) => {
-            const nextBal = curBal - effectiveRatePerMinINR;
-            if (nextBal < 0) {
-              onBalanceDepleted();
-              return 0;
-            }
-            return Number(nextBal.toFixed(2));
-          });
+        // Auto-end call if caller points run out
+        if (!isHost && maxCallSeconds > 0 && nextSeconds >= maxCallSeconds) {
+          setTimeout(() => {
+            onBalanceDepleted();
+            handleEnd();
+          }, 300);
         }
 
         return nextSeconds;
@@ -411,7 +449,7 @@ export const ActiveCallScreen: React.FC<ActiveCallScreenProps> = ({
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [effectiveRatePerMinINR, isHost, onBalanceDepleted]);
+  }, [isHost, maxCallSeconds, onBalanceDepleted]);
 
   // Independent 600ms Real-Time Disconnect Poller (Ensures instant auto-disconnect when partner hangs up)
   useEffect(() => {
@@ -538,31 +576,37 @@ export const ActiveCallScreen: React.FC<ActiveCallScreenProps> = ({
           <Text style={styles.safetyReportBtnText}>Report</Text>
         </TouchableOpacity>
 
-        <View style={styles.ratePill}>
-          <Text style={styles.ratePillText}>
-            {isHost
-              ? `Earning: ₹${effectiveRatePerMinINR}/min`
-              : `₹${effectiveRatePerMinINR}/min • Bal: ₹${remainingBalance.toFixed(2)}`}
-          </Text>
+        <View style={isHost ? styles.ratePillHost : styles.ratePillCaller}>
+          {isHost ? (
+            <Text style={styles.ratePillHostText}>
+              ₹{hostEarnedINR.toFixed(2)} Earned • ₹{hostRatePerMinINR}/min
+            </Text>
+          ) : (
+            <Text style={styles.ratePillCallerText}>
+              {callerRateInCoins} Coins/min • Left: {callerCoinsRemaining} Coins
+            </Text>
+          )}
         </View>
       </View>
 
-      {/* Emergency Low Balance In-Call Warning Banner */}
-      {!isHost && remainingBalance <= effectiveRatePerMinINR && (
+      {/* Real-Time Low Balance Countdown Warning Banner */}
+      {!isHost && secondsLeft <= 60 && secondsLeft > 0 && (
         <View style={styles.lowBalanceBanner}>
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
             <AlertCircle size={15} color="#B45309" style={{ marginRight: 6 }} />
-            <Text style={styles.lowBalanceText}>1 Min Left (₹{remainingBalance.toFixed(2)})</Text>
+            <Text style={styles.lowBalanceText}>
+              ⚠️ Only {formatTime(secondsLeft)} Left ({callerCoinsRemaining} Coins)
+            </Text>
           </View>
           <TouchableOpacity
             style={styles.quickRechargeInCallBtn}
             onPress={() => {
-              setRemainingBalance(prev => prev + 50);
+              setExtraCoinsAdded(prev => prev + 500);
             }}
             activeOpacity={0.85}
           >
             <Sparkles size={12} color="#FFFFFF" />
-            <Text style={styles.quickRechargeInCallText}>+₹50 Quick Add</Text>
+            <Text style={styles.quickRechargeInCallText}>+500 Coins Quick Add</Text>
           </TouchableOpacity>
         </View>
       )}
@@ -633,8 +677,16 @@ export const ActiveCallScreen: React.FC<ActiveCallScreenProps> = ({
 
           {/* Overlay In-Call Info & Video Status */}
           <View style={styles.videoTopOverlay}>
-            <View style={styles.timerBadgeVideo}>
-              <Text style={styles.timerTextVideo}>{formatTime(secondsElapsed)}</Text>
+            <View style={[styles.timerBadgeVideo, !isHost && secondsLeft <= 60 && { borderColor: '#EF4444', backgroundColor: 'rgba(239, 68, 68, 0.25)' }]}>
+              {isHost ? (
+                <Text style={styles.timerTextVideo}>
+                  ₹{hostEarnedINR.toFixed(2)} Earned • {formatTime(secondsElapsed)}
+                </Text>
+              ) : (
+                <Text style={[styles.timerTextVideo, secondsLeft <= 60 && { color: '#F87171' }]}>
+                  ⏱️ {formatTime(secondsLeft)} Left ({callerCoinsDeducted} Coins)
+                </Text>
+              )}
             </View>
             <View style={styles.agoraStatusPillVideo}>
               <Radio size={12} color={hasRemoteUser ? '#10B981' : '#60A5FA'} />
@@ -687,10 +739,38 @@ export const ActiveCallScreen: React.FC<ActiveCallScreenProps> = ({
             {isHost ? 'Connected with Caller' : (listener ? `@${listener.username}` : '@host')}
           </Text>
 
-          {/* Live Timer */}
-          <View style={styles.timerBadge}>
-            <Text style={styles.timerText}>{formatTime(secondsElapsed)}</Text>
-          </View>
+          {/* Real-Time Live Calling Stats / Countdown */}
+          {isHost ? (
+            <View style={styles.liveStatsCardHost}>
+              <View style={styles.statsCardTop}>
+                <IndianRupee size={15} color="#10B981" />
+                <Text style={styles.statsHostLabel}>HOST REAL-TIME EARNINGS</Text>
+              </View>
+              <Text style={styles.statsHostDigits}>₹{hostEarnedINR.toFixed(2)}</Text>
+              <View style={styles.statsDetailsRow}>
+                <Text style={styles.statsDetailTextHost}>Rate: ₹{hostRatePerMinINR}/min</Text>
+                <Text style={styles.statsDetailDot}>•</Text>
+                <Text style={styles.statsDetailTextHost}>Duration: {formatTime(secondsElapsed)}</Text>
+              </View>
+            </View>
+          ) : (
+            <View style={[styles.liveStatsCardCaller, secondsLeft <= 60 && styles.liveStatsCardWarning]}>
+              <View style={styles.statsCardTop}>
+                <Clock size={15} color={secondsLeft <= 60 ? '#EF4444' : '#F59E0B'} />
+                <Text style={[styles.statsCountdownLabel, secondsLeft <= 60 && { color: '#EF4444' }]}>
+                  {secondsLeft <= 60 ? 'CRITICAL TIME LEFT' : 'TIME REMAINING ON CALL'}
+                </Text>
+              </View>
+              <Text style={[styles.statsCountdownDigits, secondsLeft <= 60 && styles.statsDigitsWarning]}>
+                {formatTime(secondsLeft)}
+              </Text>
+              <View style={styles.statsDetailsRow}>
+                <Text style={styles.statsDetailText}>{callerCoinsDeducted} Coins Deducted</Text>
+                <Text style={styles.statsDetailDot}>•</Text>
+                <Text style={styles.statsDetailText}>{formatTime(secondsElapsed)} Elapsed</Text>
+              </View>
+            </View>
+          )}
 
           {/* Waveform Visualization Bars */}
           <View style={styles.waveformContainer}>
@@ -1054,6 +1134,112 @@ const styles = StyleSheet.create({
     color: '#BFDBFE',
     fontSize: 11,
     fontWeight: '700',
+  },
+  ratePillHost: {
+    backgroundColor: 'rgba(16,185,129,0.18)',
+    borderWidth: 1,
+    borderColor: '#10B981',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+  },
+  ratePillHostText: {
+    color: '#6EE7B7',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  ratePillCaller: {
+    backgroundColor: 'rgba(245,158,11,0.18)',
+    borderWidth: 1,
+    borderColor: '#F59E0B',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+  },
+  ratePillCallerText: {
+    color: '#FCD34D',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  liveStatsCardHost: {
+    width: '92%',
+    backgroundColor: 'rgba(16,185,129,0.12)',
+    borderWidth: 1.5,
+    borderColor: '#10B981',
+    borderRadius: 18,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+    marginTop: 14,
+  },
+  statsHostLabel: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#6EE7B7',
+    letterSpacing: 0.8,
+  },
+  statsHostDigits: {
+    fontSize: 28,
+    fontWeight: '900',
+    color: '#10B981',
+    marginTop: 2,
+    fontVariant: ['tabular-nums'],
+  },
+  statsDetailTextHost: {
+    fontSize: 11,
+    color: '#A7F3D0',
+    fontWeight: '600',
+  },
+  liveStatsCardCaller: {
+    width: '92%',
+    backgroundColor: 'rgba(30,58,138,0.3)',
+    borderWidth: 1.5,
+    borderColor: '#3B82F6',
+    borderRadius: 18,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+    marginTop: 14,
+  },
+  liveStatsCardWarning: {
+    backgroundColor: 'rgba(239,68,68,0.18)',
+    borderColor: '#EF4444',
+  },
+  statsCardTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  statsCountdownLabel: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#FCD34D',
+    letterSpacing: 0.8,
+  },
+  statsCountdownDigits: {
+    fontSize: 32,
+    fontWeight: '900',
+    color: '#F59E0B',
+    marginTop: 2,
+    fontVariant: ['tabular-nums'],
+  },
+  statsDigitsWarning: {
+    color: '#EF4444',
+  },
+  statsDetailsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 6,
+  },
+  statsDetailText: {
+    fontSize: 11,
+    color: '#CBD5E1',
+    fontWeight: '600',
+  },
+  statsDetailDot: {
+    color: '#64748B',
+    fontSize: 12,
   },
   callingStage: {
     alignItems: 'center',

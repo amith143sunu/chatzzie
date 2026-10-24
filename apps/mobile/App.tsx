@@ -805,10 +805,13 @@ export default function App() {
             userRole={userRole}
             onBackPress={() => setCurrentScreen('tab_home')}
             onTransactionsPress={() => setCurrentScreen('transactions')}
+            onCallHistoryPress={() => setCurrentScreen('call_history')}
+            onPrivacyPress={() => setPolicyModal({ visible: true, type: 'privacy' })}
+            onTermsPress={() => setPolicyModal({ visible: true, type: 'terms' })}
+            onRefundPress={() => setPolicyModal({ visible: true, type: 'refund' })}
             onHelpPress={() => setCurrentScreen('help')}
             onBecomeListenerPress={() => setShowOnboardingModal(true)}
             onEarningsPress={() => setShowEarningsModal(true)}
-            onAdminPress={() => setCurrentScreen('admin')}
             onLogout={handleLogout}
           />
         )}
@@ -876,11 +879,12 @@ export default function App() {
         {/* Post-Call Summary & Rating Modal */}
         <CallSummaryModal
           visible={summaryData.visible}
-          listenerName={selectedListener.name}
-          listenerAvatar={selectedListener.avatarUrl}
+          listenerName={selectedListener?.name || 'Partner'}
+          listenerAvatar={selectedListener?.avatarUrl || 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=300&q=80'}
           durationSeconds={summaryData.duration}
           totalCostINR={summaryData.cost}
           newBalanceINR={walletBalanceINR}
+          isHost={userRole === 'listener'}
           onClose={() => setSummaryData({ visible: false, duration: 0, cost: 0 })}
         />
 
