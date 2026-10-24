@@ -29,6 +29,83 @@ const AGORA_APP_CERTIFICATE = process.env.AGORA_APP_CERTIFICATE || 'mock_agora_c
 // -------------------------------------------------------------------
 // 1. PUBLIC CONFIG & DISCOVERY ENDPOINTS
 // -------------------------------------------------------------------
+// Instant Quick Sign-Up (Zero OTP - Name & Role)
+app.post('/api/auth/quick-signup', (req, res) => {
+    const { name, role, phone } = req.body;
+    const cleanName = (name || 'Friend').trim();
+    const id = `u_${Date.now()}`;
+    const userPhone = phone || `98${Math.floor(10000000 + Math.random() * 90000000)}`;
+    const username = cleanName.toLowerCase().replace(/[^a-z0-9]/g, '_') + '_' + Math.floor(100 + Math.random() * 900);
+    const avatarUrl = `https://images.unsplash.com/photo-${role === 'listener' ? '1544005313-94ddf0286df2' : '1535713875002-d1d0cf377fde'}?auto=format&fit=crop&w=300&q=80`;
+    if (role === 'listener') {
+        const newListener = {
+            id: `list_${Date.now()}`,
+            userId: id,
+            username: username,
+            name: cleanName,
+            avatarUrl,
+            bio: `Compassionate and attentive listener ready to talk, listen, and support you.`,
+            languages: ['Hindi', 'English'],
+            callRatePerMinINR: 9,
+            isVideoEnabled: true,
+            status: 'online',
+            rating: 5.0,
+            totalReviews: 1,
+            followersCount: 14,
+            giftsCount: 2,
+            voiceBioUrl: 'https://actions.google.com/sounds/v1/speech/voice_intro_1.mp3',
+            voiceBioDurationSeconds: 18,
+            kycStatus: 'verified',
+            panNumber: 'ABCDE1234F',
+            isAvailableForCalls: true,
+        };
+        db_1.mockListeners.unshift(newListener);
+        db_1.mockUsers.unshift({
+            id,
+            phone: userPhone,
+            name: cleanName,
+            avatarUrl,
+            walletBalanceINR: 0,
+            role: 'listener',
+            isListenerVerified: true,
+            preferredLanguages: ['Hindi', 'English'],
+            createdAt: new Date().toISOString(),
+        });
+        io.emit('listener_status_change', { listenerId: newListener.id, status: 'online' });
+        return res.json({
+            success: true,
+            user: {
+                id,
+                name: cleanName,
+                phone: userPhone,
+                username,
+                role: 'listener',
+                avatarUrl,
+                walletBalanceINR: 0,
+                listenerProfile: newListener,
+            }
+        });
+    }
+    else {
+        const newUser = {
+            id,
+            phone: userPhone,
+            name: cleanName,
+            username,
+            avatarUrl,
+            walletBalanceINR: 60.00, // Starter wallet balance for testing calls
+            role: 'talker',
+            isListenerVerified: false,
+            preferredLanguages: ['Hindi', 'English'],
+            createdAt: new Date().toISOString(),
+        };
+        db_1.mockUsers.unshift(newUser);
+        return res.json({
+            success: true,
+            user: newUser
+        });
+    }
+});
 app.get('/api/config', (req, res) => {
     res.json({
         appName: 'Chatzie',

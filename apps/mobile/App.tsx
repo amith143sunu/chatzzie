@@ -20,6 +20,7 @@ import { PolicyModal, PolicyType } from './src/screens/PolicyModal';
 import { HelpScreen } from './src/screens/HelpScreen';
 import { ListenerOnboardingModal } from './src/screens/ListenerOnboardingModal';
 import { ListenerEarningsModal } from './src/screens/ListenerEarningsModal';
+import { QuickAuthModal } from './src/components/QuickAuthModal';
 import { DeviceFrame, ViewMode } from './src/components/DeviceFrame';
 import { InsufficientBalanceModal } from './src/components/InsufficientBalanceModal';
 import { ListenerProfile, WalletTransaction, Coupon, DEFAULT_COUPONS } from '@chatzie/shared';
@@ -104,7 +105,47 @@ export default function App() {
   const [listeners, setListeners] = useState<ListenerProfile[]>(mockListeners);
   const [transactions, setTransactions] = useState<WalletTransaction[]>(mockTransactions);
   const [userName, setUserName] = useState('Amit');
+  const [userRole, setUserRole] = useState<'talker' | 'listener'>('talker');
+  const [userId, setUserId] = useState<string>('u-amit');
+  const [showAuthModal, setShowAuthModal] = useState<boolean>(false);
   const [userAvatar, setUserAvatar] = useState('https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=200&q=80');
+
+  // Load saved user identity from localStorage on startup
+  useEffect(() => {
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        const saved = window.localStorage.getItem('chatzie_current_user');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (parsed.name) setUserName(parsed.name);
+          if (parsed.role) setUserRole(parsed.role);
+          if (parsed.id) setUserId(parsed.id);
+          if (typeof parsed.walletBalanceINR === 'number') setWalletBalanceINR(parsed.walletBalanceINR);
+          if (parsed.role === 'listener') setIsListenerVerified(true);
+        }
+      }
+    } catch (e) {}
+  }, []);
+
+  const handleAuthSuccess = (u: any) => {
+    setUserName(u.name);
+    setUserRole(u.role);
+    setUserId(u.id);
+    if (typeof u.walletBalanceINR === 'number') {
+      setWalletBalanceINR(u.walletBalanceINR);
+    }
+    if (u.role === 'listener') {
+      setIsListenerVerified(true);
+      fetch(`${getApiBaseUrl()}/api/listeners`)
+        .then((r) => r.json())
+        .then((data) => {
+          if (Array.isArray(data)) setListeners(data);
+        })
+        .catch(() => {});
+    } else {
+      setIsListenerVerified(false);
+    }
+  };
 
   // Active Contexts
   const [selectedListener, setSelectedListener] = useState<ListenerProfile>(mockListeners[0]);
@@ -369,6 +410,9 @@ export default function App() {
             onEarningsPress={() => setShowEarningsModal(true)}
             viewMode={viewMode}
             onToggleViewMode={setViewMode}
+            userName={userName}
+            userRole={userRole}
+            onSwitchProfilePress={() => setShowAuthModal(true)}
           />
         )}
 
@@ -496,11 +540,14 @@ export default function App() {
         {currentScreen === 'account' && (
           <AccountScreen
             isListenerVerified={isListenerVerified}
+            userName={userName}
+            userRole={userRole}
             onBackPress={() => setCurrentScreen('tab_home')}
             onTransactionsPress={() => setCurrentScreen('transactions')}
             onHelpPress={() => setCurrentScreen('help')}
             onBecomeListenerPress={() => setShowOnboardingModal(true)}
             onEarningsPress={() => setShowEarningsModal(true)}
+            onSwitchProfilePress={() => setShowAuthModal(true)}
           />
         )}
 
@@ -587,6 +634,15 @@ export default function App() {
             setLowBalanceModal({ visible: false, listener: null, type: 'audio' });
             handleTabChange('wallet');
           }}
+        />
+
+        {/* Quick Sign-Up & Profile Switcher Modal (Zero OTP) */}
+        <QuickAuthModal
+          visible={showAuthModal}
+          onClose={() => setShowAuthModal(false)}
+          onLoginSuccess={handleAuthSuccess}
+          currentRole={userRole}
+          currentName={userName}
         />
 
         {/* Legal Policy Viewer Modal */}

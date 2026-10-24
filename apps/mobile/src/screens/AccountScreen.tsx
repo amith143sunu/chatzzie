@@ -33,6 +33,9 @@ interface AccountScreenProps {
   onBecomeListenerPress: () => void;
   onEarningsPress?: () => void;
   isListenerVerified?: boolean;
+  userName?: string;
+  userRole?: 'talker' | 'listener';
+  onSwitchProfilePress?: () => void;
 }
 
 export const AccountScreen: React.FC<AccountScreenProps> = ({
@@ -42,6 +45,9 @@ export const AccountScreen: React.FC<AccountScreenProps> = ({
   onBecomeListenerPress,
   onEarningsPress,
   isListenerVerified = false,
+  userName = 'Amit',
+  userRole = 'talker',
+  onSwitchProfilePress,
 }) => {
   return (
     <View style={styles.container}>
@@ -61,12 +67,14 @@ export const AccountScreen: React.FC<AccountScreenProps> = ({
             style={styles.avatar}
           />
           <View style={styles.userInfo}>
-            <Text style={styles.userName}>Hello, Amit</Text>
-            <Text style={styles.userPhone}>Phone: 8700788942</Text>
+            <Text style={styles.userName}>Hello, {userName}</Text>
+            <Text style={styles.userPhone}>Role: {userRole === 'listener' ? 'Host (Listener)' : 'Caller (Talker)'}</Text>
           </View>
-          <TouchableOpacity style={styles.editBtn} activeOpacity={0.8}>
-            <Text style={styles.editBtnText}>Edit</Text>
-          </TouchableOpacity>
+          {onSwitchProfilePress && (
+            <TouchableOpacity style={styles.editBtn} onPress={onSwitchProfilePress} activeOpacity={0.8}>
+              <Text style={styles.editBtnText}>Switch Profile</Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* Listener Mode Banner */}

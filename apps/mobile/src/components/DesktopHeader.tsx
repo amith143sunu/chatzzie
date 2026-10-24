@@ -28,6 +28,9 @@ interface DesktopHeaderProps {
   viewMode: 'desktop' | 'mobile';
   onToggleViewMode: (mode: 'desktop' | 'mobile') => void;
   unreadChatCount?: number;
+  userName?: string;
+  userRole?: 'talker' | 'listener';
+  onSwitchProfilePress?: () => void;
 }
 
 export const DesktopHeader: React.FC<DesktopHeaderProps> = ({
@@ -41,6 +44,9 @@ export const DesktopHeader: React.FC<DesktopHeaderProps> = ({
   viewMode,
   onToggleViewMode,
   unreadChatCount = 1,
+  userName = 'Amit',
+  userRole = 'talker',
+  onSwitchProfilePress,
 }) => {
   return (
     <View style={styles.headerWrapper}>
@@ -169,6 +175,21 @@ export const DesktopHeader: React.FC<DesktopHeaderProps> = ({
             </View>
           </TouchableOpacity>
 
+          {/* User Profile & Switch Button */}
+          {onSwitchProfilePress && (
+            <TouchableOpacity
+              style={styles.userRolePill}
+              onPress={onSwitchProfilePress}
+              activeOpacity={0.85}
+              title="Click to Switch Profile / Role"
+            >
+              <View style={[styles.roleBadgeDot, userRole === 'listener' ? styles.listenerDot : styles.talkerDot]} />
+              <Text style={styles.userNameHeader}>{userName}</Text>
+              <Text style={styles.userRoleHeader}>({userRole === 'listener' ? 'Host' : 'User'})</Text>
+              <Text style={styles.switchText}>Switch</Text>
+            </TouchableOpacity>
+          )}
+
           {/* User Avatar */}
           <TouchableOpacity
             style={styles.avatarBtn}
@@ -187,7 +208,8 @@ export const DesktopHeader: React.FC<DesktopHeaderProps> = ({
             style={styles.adminPortalBtn}
             onPress={() => {
               if (typeof window !== 'undefined') {
-                window.open('http://localhost:8681/admin', '_blank');
+                const adminUrl = window.location.port === '8680' ? 'http://localhost:8681/admin' : '/admin';
+                window.open(adminUrl, '_blank');
               }
             }}
             activeOpacity={0.85}
@@ -430,5 +452,43 @@ const styles = StyleSheet.create({
   },
   viewToggleBtnActive: {
     backgroundColor: '#2563EB',
+  },
+  userRolePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 14,
+  },
+  roleBadgeDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  talkerDot: {
+    backgroundColor: '#3B82F6',
+  },
+  listenerDot: {
+    backgroundColor: '#10B981',
+  },
+  userNameHeader: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  userRoleHeader: {
+    fontSize: 11,
+    color: '#64748B',
+    fontWeight: '500',
+  },
+  switchText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#7C3AED',
+    textDecorationLine: 'underline',
   },
 });
