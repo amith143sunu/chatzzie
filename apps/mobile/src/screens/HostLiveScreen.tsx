@@ -153,11 +153,15 @@ export const HostLiveScreen: React.FC<HostLiveScreenProps> = ({
     }
   };
 
-  // Fetch Workstation Operational Data
+  // Fetch Workstation Operational Data & Real-Time Chats
   const loadWorkstationData = async () => {
     try {
       const baseUrl = getApiBaseUrl();
-      const res = await fetch(`${baseUrl}/api/host/workstation-data/${encodeURIComponent(hostUsername)}`);
+      const [res, chatRes] = await Promise.all([
+        fetch(`${baseUrl}/api/host/workstation-data/${encodeURIComponent(hostUsername)}`),
+        fetch(`${baseUrl}/api/chat/host-conversations/${encodeURIComponent(hostUsername)}`),
+      ]);
+
       if (res.ok) {
         const data = await res.json();
         if (data.success) {
@@ -169,6 +173,18 @@ export const HostLiveScreen: React.FC<HostLiveScreenProps> = ({
           }
           if (Array.isArray(data.missedCalls)) setMissedCalls(data.missedCalls);
           if (Array.isArray(data.payoutHistory)) setPayoutHistory(data.payoutHistory);
+        }
+      }
+
+      if (chatRes.ok) {
+        const chatData = await chatRes.json();
+        if (chatData.success && Array.isArray(chatData.conversations)) {
+          setChatConversations(chatData.conversations);
+          setActiveChatCaller((prevActive: any) => {
+            if (!prevActive) return chatData.conversations[0] || null;
+            const updated = chatData.conversations.find((c: any) => c.id === prevActive.id);
+            return updated || prevActive;
+          });
         }
       }
     } catch (e) {}
@@ -342,9 +358,27 @@ export const HostLiveScreen: React.FC<HostLiveScreenProps> = ({
       messages: [...prev.messages, newMsg],
     }));
 
+    const replyToSend = hostReplyText.trim();
     setHostReplyText('');
     setTotalEarningsINR(e => Number((e + 0.125).toFixed(2)));
     setAvailableBalanceINR(e => Number((e + 0.125).toFixed(2)));
+
+    // Send to backend real-time chat relay
+    try {
+      const baseUrl = getApiBaseUrl();
+      fetch(`${baseUrl}/api/chat/send`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          senderId: hostUsername,
+          senderName: hostName,
+          senderRole: 'host',
+          recipientId: activeChatCaller.callerName,
+          recipientUsername: activeChatCaller.callerName,
+          text: replyToSend,
+        }),
+      });
+    } catch (e) {}
   };
 
   return (

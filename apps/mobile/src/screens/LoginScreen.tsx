@@ -22,6 +22,7 @@ import {
   KeyRound,
   RefreshCw,
   Zap,
+  ShieldAlert,
 } from 'lucide-react-native';
 import { THEME } from '../theme';
 import { getApiBaseUrl } from '../services/apiConfig';
@@ -367,6 +368,23 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
               100% Anonymous & Encrypted • Zero Spam • Sandbox Test Mode
             </Text>
           </View>
+
+          {/* Admin Backoffice Direct Link */}
+          <TouchableOpacity
+            style={styles.adminPortalLink}
+            onPress={() => {
+              if (typeof window !== 'undefined') {
+                const newWin = window.open('/admin', '_blank');
+                if (!newWin) {
+                  window.location.href = '/admin';
+                }
+              }
+            }}
+            activeOpacity={0.8}
+          >
+            <ShieldAlert size={13} color="#94A3B8" />
+            <Text style={styles.adminPortalLinkText}>Admin Management Portal (/admin)</Text>
+          </TouchableOpacity>
         </View>
       </ScrollView>
     </View>
@@ -663,5 +681,18 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#64748B',
     fontWeight: '600',
+  },
+  adminPortalLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 12,
+    gap: 6,
+  },
+  adminPortalLinkText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#94A3B8',
+    textDecorationLine: 'underline',
   },
 });

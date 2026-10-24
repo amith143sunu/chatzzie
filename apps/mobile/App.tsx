@@ -26,6 +26,7 @@ import { DeviceFrame, ViewMode } from './src/components/DeviceFrame';
 import { InsufficientBalanceModal } from './src/components/InsufficientBalanceModal';
 import { HostBusyModal } from './src/components/HostBusyModal';
 import { HostFreeAlertModal } from './src/components/HostFreeAlertModal';
+import { OutgoingDialModal } from './src/components/OutgoingDialModal';
 import { ListenerProfile, WalletTransaction, Coupon, DEFAULT_COUPONS } from '@chatzie/shared';
 import { mockListeners, mockTransactions } from './src/data/mockData';
 import { THEME } from './src/theme';
@@ -278,6 +279,14 @@ export default function App() {
   });
   const [hostFreeAlert, setHostFreeAlert] = useState<{ visible: boolean; hostName: string; hostUsername: string } | null>(null);
 
+  // Outgoing Dialing Ringing Screen (Waits for Host to Accept)
+  const [outgoingDialData, setOutgoingDialData] = useState<{
+    visible: boolean;
+    listener: ListenerProfile;
+    type: 'audio' | 'video';
+    channel: string;
+  } | null>(null);
+
   // Poll for queued host becoming free
   useEffect(() => {
     if (!isAuthenticated || userRole === 'listener') return;
@@ -370,23 +379,37 @@ export default function App() {
         })
         .catch(() => {});
 
-      // Register live session in admin monitor
-      fetch(`${baseUrl}/api/calls/start`, {
+      // Dial host via backend signaling (sets status = ringing)
+      fetch(`${baseUrl}/api/calls/dial`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          channel,
-          caller: `${userName || 'Caller'} (${userId})`,
-          listener: `${listener.name} (@${listener.username})`,
-          type,
-          ratePerMinINR: type === 'video' ? 30 : 9,
+          callerName: userName || 'Caller',
+          callerId: userId,
+          listenerUsername: listener.username,
+          callType: type,
+          ratePerMin: type === 'video' ? 30 : 9,
         }),
-      }).catch(() => {});
+      })
+        .then(r => r.json())
+        .then(data => {
+          if (data && data.isBusy) {
+            setBusyHostModal({ visible: true, host: listener });
+            setOutgoingDialData(null);
+            setCurrentScreen('tab_home');
+          }
+        })
+        .catch(() => {});
     } catch (e) {}
 
     setSelectedListener(listener);
     setActiveCallType(type);
-    setCurrentScreen('active_call');
+    setOutgoingDialData({
+      visible: true,
+      listener,
+      type,
+      channel,
+    });
   };
 
   // Deduct chat costs (₹0.25 text / ₹0.75 image)
@@ -676,9 +699,12 @@ export default function App() {
         {currentScreen === 'chat_detail' && (
           <ChatDetailScreen
             partnerName={selectedListener.name}
+            partnerUsername={selectedListener.username}
             partnerAvatar={selectedListener.avatarUrl}
             partnerRate={selectedListener.callRatePerMinINR}
             userBalanceINR={walletBalanceINR}
+            userName={userName || 'Caller'}
+            userId={userId || 'u_caller'}
             onBackPress={() => setCurrentScreen('tab_chat')}
             onAudioCallPress={() => handleStartCall(selectedListener, 'audio')}
             onVideoCallPress={() => handleStartCall(selectedListener, 'video')}
@@ -760,7 +786,7 @@ export default function App() {
             listener={selectedListener}
             callType={activeCallType}
             userBalanceINR={walletBalanceINR}
-            isHost={false}
+            isHost={userRole === 'listener'}
             channelNameOverride={activeCallChannel}
             partnerNameOverride={activePartnerName}
             onEndCall={handleEndCall}
@@ -890,6 +916,51 @@ export default function App() {
           type={policyModal.type}
           onClose={() => setPolicyModal({ ...policyModal, visible: false })}
         />
+
+        {/* Outgoing Dial Screen - Rings Host Console Until Accepted */}
+        {outgoingDialData && (
+          <OutgoingDialModal
+            visible={outgoingDialData.visible}
+            listener={outgoingDialData.listener}
+            callType={outgoingDialData.type}
+            channelName={outgoingDialData.channel}
+            onAccepted={() => {
+              const activeL = outgoingDialData.listener;
+              const activeT = outgoingDialData.type;
+              const activeCh = outgoingDialData.channel;
+              setOutgoingDialData(null);
+              setSelectedListener(activeL);
+              setActiveCallType(activeT);
+              setActiveCallChannel(activeCh);
+              setActivePartnerName(activeL.name);
+              setCurrentScreen('active_call');
+
+              // Register live session in admin monitor once accepted
+              try {
+                const baseUrl = getApiBaseUrl();
+                fetch(`${baseUrl}/api/calls/start`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    channel: activeCh,
+                    caller: `${userName || 'Caller'} (${userId})`,
+                    listener: `${activeL.name} (@${activeL.username})`,
+                    type: activeT,
+                    ratePerMinINR: activeT === 'video' ? 30 : 9,
+                  }),
+                }).catch(() => {});
+              } catch (e) {}
+            }}
+            onDeclined={() => {
+              const name = outgoingDialData.listener.name;
+              setOutgoingDialData(null);
+              Alert.alert('Call Not Answered', `${name} is currently away or declined the call.`);
+            }}
+            onCancel={() => {
+              setOutgoingDialData(null);
+            }}
+          />
+        )}
       </View>
     </SafeAreaView>
     </ErrorBoundary>

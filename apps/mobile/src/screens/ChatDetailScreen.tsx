@@ -29,12 +29,16 @@ import {
   X
 } from 'lucide-react-native';
 import { THEME } from '../theme';
+import { getApiBaseUrl } from '../services/apiConfig';
 
 interface ChatDetailScreenProps {
   partnerName: string;
+  partnerUsername?: string;
   partnerAvatar: string;
   partnerRate: number;
   userBalanceINR: number;
+  userName?: string;
+  userId?: string;
   onBackPress: () => void;
   onAudioCallPress: () => void;
   onVideoCallPress: () => void;
@@ -75,9 +79,12 @@ const SAMPLE_PHOTO_PRESETS = [
 
 export const ChatDetailScreen: React.FC<ChatDetailScreenProps> = ({
   partnerName,
+  partnerUsername,
   partnerAvatar,
   partnerRate,
   userBalanceINR,
+  userName = 'Caller',
+  userId = 'u_caller',
   onBackPress,
   onAudioCallPress,
   onVideoCallPress,
@@ -110,6 +117,39 @@ export const ChatDetailScreen: React.FC<ChatDetailScreenProps> = ({
       time: '10:10 AM',
     }
   ]);
+
+  // Real-Time Chat Thread Poller
+  useEffect(() => {
+    let isMounted = true;
+    const fetchChatThread = async () => {
+      try {
+        const baseUrl = getApiBaseUrl();
+        const effectiveCaller = userName || userId || 'Caller';
+        const effectiveHost = partnerUsername || partnerName;
+        const res = await fetch(`${baseUrl}/api/chat/thread?user1=${encodeURIComponent(effectiveCaller)}&user2=${encodeURIComponent(effectiveHost)}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success && Array.isArray(data.messages) && data.messages.length > 0 && isMounted) {
+            const mapped = data.messages.map((m: any) => ({
+              id: m.id,
+              sender: m.senderRole === 'caller' ? 'user' : 'partner',
+              text: m.text,
+              imageUrl: m.imageUrl,
+              time: m.timeFormatted || 'Just now',
+            }));
+            setMessages(mapped);
+          }
+        }
+      } catch (e) {}
+    };
+
+    fetchChatThread();
+    const timer = setInterval(fetchChatThread, 1500);
+    return () => {
+      isMounted = false;
+      clearInterval(timer);
+    };
+  }, [partnerName, partnerUsername, userName, userId]);
 
   const quickIcebreakers = [
     'How do you unwind after a busy day?',
@@ -153,34 +193,36 @@ export const ChatDetailScreen: React.FC<ChatDetailScreenProps> = ({
     const deducted = onDeductChatCost(0.25, `Chat text message to ${partnerName}`);
     if (!deducted) return;
 
+    const timeFormatted = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     const newMsg: Message = {
       id: `m_${Date.now()}`,
       sender: 'user',
       text: inputText.trim(),
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      time: timeFormatted,
     };
 
-    setMessages([...messages, newMsg]);
+    setMessages(prev => [...prev, newMsg]);
+    const msgToSend = inputText.trim();
     setInputText('');
 
-    const replies = [
-      'That makes total sense. I am listening!',
-      'I appreciate you sharing that with me. It really helps to talk things through.',
-      'That sounds interesting! Tell me a bit more about how that felt.',
-      'Whenever you want to talk more in-depth, feel free to start an audio call!'
-    ];
-    const randomReply = replies[Math.floor(Math.random() * replies.length)];
-
-    // Simulate partner response
-    setTimeout(() => {
-      const replyMsg: Message = {
-        id: `m_${Date.now() + 1}`,
-        sender: 'partner',
-        text: randomReply,
-        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      };
-      setMessages(prev => [...prev, replyMsg]);
-    }, 1200);
+    // Send to backend real-time chat relay
+    try {
+      const baseUrl = getApiBaseUrl();
+      const effectiveCaller = userName || 'Caller';
+      const effectiveHost = partnerUsername || partnerName;
+      fetch(`${baseUrl}/api/chat/send`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          senderId: userId || 'u_caller',
+          senderName: effectiveCaller,
+          senderRole: 'caller',
+          recipientId: effectiveHost,
+          recipientUsername: effectiveHost,
+          text: msgToSend,
+        }),
+      });
+    } catch (e) {}
   };
 
   // Send Image Message (Costs ₹0.75)
@@ -212,15 +254,25 @@ export const ChatDetailScreen: React.FC<ChatDetailScreenProps> = ({
 
     setMessages(prev => [...prev, newMsg]);
 
-    setTimeout(() => {
-      const replyMsg: Message = {
-        id: `m_${Date.now() + 1}`,
-        sender: 'partner',
-        text: 'That is a wonderful photo! Thanks for sharing this moment with me.',
-        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      };
-      setMessages(prev => [...prev, replyMsg]);
-    }, 1500);
+    // Send photo message to backend chat relay
+    try {
+      const baseUrl = getApiBaseUrl();
+      const effectiveCaller = userName || 'Caller';
+      const effectiveHost = partnerUsername || partnerName;
+      fetch(`${baseUrl}/api/chat/send`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          senderId: userId || 'u_caller',
+          senderName: effectiveCaller,
+          senderRole: 'caller',
+          recipientId: effectiveHost,
+          recipientUsername: effectiveHost,
+          text: preset.caption,
+          imageUrl: preset.url,
+        }),
+      });
+    } catch (e) {}
   };
 
   return (

@@ -465,7 +465,7 @@ interface ActiveRingCall {
   callType: 'audio' | 'video';
   ratePerMin: number;
   timestamp: number;
-  status: 'ringing' | 'accepted' | 'declined' | 'ended';
+  status: 'ringing' | 'accepted' | 'declined' | 'ended' | 'cancelled';
 }
 
 // Active State Trackers
@@ -617,13 +617,15 @@ app.post('/api/host/request-payout', (req, res) => {
   });
 });
 
-// 2. Host polls for incoming calls (e.g. Host waiting on Laptop)
+// 2. Host polls for incoming calls (Case-insensitive & real-time)
 app.get('/api/calls/check-incoming', (req, res) => {
   const { username } = req.query;
   if (!username || typeof username !== 'string') {
     return res.json({ hasIncoming: false });
   }
-  const call = activeRingingCalls[username];
+  const cleanQ = username.trim().toLowerCase();
+  const key = Object.keys(activeRingingCalls).find(k => k.toLowerCase() === cleanQ);
+  const call = key ? activeRingingCalls[key] : null;
   // Ring timeout after 45 seconds
   if (call && call.status === 'ringing' && Date.now() - call.timestamp < 45000) {
     return res.json({ hasIncoming: true, call });
@@ -634,9 +636,12 @@ app.get('/api/calls/check-incoming', (req, res) => {
 // 3. Host accepts call
 app.post('/api/calls/accept', (req, res) => {
   const { username } = req.body;
-  if (activeRingingCalls[username]) {
-    activeRingingCalls[username].status = 'accepted';
-    return res.json({ success: true, call: activeRingingCalls[username] });
+  const cleanQ = (username || '').trim().toLowerCase();
+  const key = Object.keys(activeRingingCalls).find(k => k.toLowerCase() === cleanQ);
+  if (key && activeRingingCalls[key]) {
+    activeRingingCalls[key].status = 'accepted';
+    io.emit('call_accepted', { channel: activeRingingCalls[key].channel });
+    return res.json({ success: true, call: activeRingingCalls[key] });
   }
   res.json({ success: false });
 });
@@ -644,11 +649,200 @@ app.post('/api/calls/accept', (req, res) => {
 // 4. Host declines call
 app.post('/api/calls/decline', (req, res) => {
   const { username } = req.body;
-  if (activeRingingCalls[username]) {
-    activeRingingCalls[username].status = 'declined';
-    delete activeRingingCalls[username];
+  const cleanQ = (username || '').trim().toLowerCase();
+  const key = Object.keys(activeRingingCalls).find(k => k.toLowerCase() === cleanQ);
+  if (key && activeRingingCalls[key]) {
+    activeRingingCalls[key].status = 'declined';
+    io.emit('call_declined', { channel: activeRingingCalls[key].channel });
+    delete activeRingingCalls[key];
   }
   res.json({ success: true });
+});
+
+// 5. Caller cancels dial
+app.post('/api/calls/cancel-dial', (req, res) => {
+  const { channel, listenerUsername } = req.body;
+  const cleanQ = (listenerUsername || '').trim().toLowerCase();
+  const key = Object.keys(activeRingingCalls).find(k => 
+    k.toLowerCase() === cleanQ || (channel && activeRingingCalls[k].channel === channel)
+  );
+  if (key && activeRingingCalls[key]) {
+    activeRingingCalls[key].status = 'cancelled';
+    io.emit('call_cancelled', { channel: activeRingingCalls[key].channel });
+    delete activeRingingCalls[key];
+  }
+  res.json({ success: true });
+});
+
+// 6. Caller checks if host accepted or declined
+app.get('/api/calls/check-dial-status', (req, res) => {
+  const channel = req.query.channel as string;
+  if (!channel) return res.json({ status: 'ringing' });
+  const key = Object.keys(activeRingingCalls).find(k => activeRingingCalls[k].channel === channel);
+  if (key && activeRingingCalls[key]) {
+    return res.json({ status: activeRingingCalls[key].status, call: activeRingingCalls[key] });
+  }
+  res.json({ status: 'ringing' });
+});
+
+// -------------------------------------------------------------------
+// REAL-TIME CHAT RELAY ENGINE (Anti-Leak & 2-Way Message Store)
+// -------------------------------------------------------------------
+
+interface ChatMessageItem {
+  id: string;
+  senderId: string;
+  senderName: string;
+  senderRole: 'caller' | 'host';
+  recipientId: string;
+  recipientUsername: string;
+  text: string;
+  imageUrl?: string;
+  timestamp: number;
+  timeFormatted: string;
+}
+
+const chatDatabase: Record<string, ChatMessageItem[]> = {
+  'priyasharma___uamit': [
+    {
+      id: 'm_init_1',
+      senderId: 'u_priya',
+      senderName: 'Priya Sharma (Host)',
+      senderRole: 'host',
+      recipientId: 'u-amit',
+      recipientUsername: 'u-amit',
+      text: 'Hello! Welcome to Chatzie. Feel free to chat with me here or call whenever you are ready.',
+      timestamp: Date.now() - 3600000,
+      timeFormatted: '10:00 AM',
+    }
+  ]
+};
+
+function getConvKey(u1: string, u2: string) {
+  const c1 = (u1 || '').toLowerCase().trim().replace(/[^a-z0-9]/g, '');
+  const c2 = (u2 || '').toLowerCase().trim().replace(/[^a-z0-9]/g, '');
+  return [c1, c2].sort().join('___');
+}
+
+// Send chat message
+app.post('/api/chat/send', (req, res) => {
+  const { senderId, senderName, senderRole, recipientId, recipientUsername, text, imageUrl } = req.body;
+  if (!text && !imageUrl) {
+    return res.status(400).json({ error: 'Message content required' });
+  }
+
+  // Anti-Leak validation on server
+  if (text) {
+    const hasDigits = /\d/.test(text);
+    const wordNumbers = /\b(zero|one|two|three|four|five|six|seven|eight|nine|ek|do|teen|char|paanch|chhe|saat|aath|nau|das)\b/i;
+    const socialPlatforms = /\b(insta|instagram|snap|snapchat|telegram|wa\.me|whatsapp|fb|facebook|paytm|phonepe|gpay|call me|dm me|gmail|email)\b/i;
+    if (hasDigits || wordNumbers.test(text) || socialPlatforms.test(text)) {
+      return res.status(403).json({
+        error: 'Policy Violation: Sharing numbers, phone contacts, or external handles is strictly prohibited.',
+        policyViolation: true,
+      });
+    }
+  }
+
+  const convKey = getConvKey(senderName || senderId, recipientUsername || recipientId);
+  const now = new Date();
+  const timeFormatted = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+  const msg: ChatMessageItem = {
+    id: `msg_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+    senderId: senderId || 'u_caller',
+    senderName: senderName || 'User',
+    senderRole: senderRole || 'caller',
+    recipientId: recipientId || 'u_recipient',
+    recipientUsername: recipientUsername || 'recipient',
+    text: (text || '').trim(),
+    imageUrl,
+    timestamp: Date.now(),
+    timeFormatted,
+  };
+
+  if (!chatDatabase[convKey]) chatDatabase[convKey] = [];
+  chatDatabase[convKey].push(msg);
+
+  // Relay real-time message via socket
+  io.emit('chat_message_received', { convKey, message: msg });
+
+  res.json({ success: true, message: msg });
+});
+
+// Get chat thread between 2 users
+app.get('/api/chat/thread', (req, res) => {
+  const { user1, user2 } = req.query;
+  if (!user1 || !user2 || typeof user1 !== 'string' || typeof user2 !== 'string') {
+    return res.json({ success: true, messages: [] });
+  }
+  const convKey = getConvKey(user1, user2);
+  let messages = chatDatabase[convKey];
+  if (!messages) {
+    const c1 = user1.toLowerCase().trim().replace(/[^a-z0-9]/g, '');
+    const c2 = user2.toLowerCase().trim().replace(/[^a-z0-9]/g, '');
+    const matchedKey = Object.keys(chatDatabase).find(k => 
+      (c1 && k.includes(c1)) || (c2 && k.includes(c2))
+    );
+    if (matchedKey) messages = chatDatabase[matchedKey];
+  }
+  res.json({ success: true, messages: messages || [] });
+});
+
+// Get host chat conversations list
+app.get('/api/chat/host-conversations/:username', (req, res) => {
+  const { username } = req.params;
+  const cleanHost = username.toLowerCase().trim().replace(/[^a-z0-9]/g, '');
+  const matchingListener = mockListeners.find(l => l.username.toLowerCase() === username.toLowerCase());
+  const cleanName = matchingListener ? matchingListener.name.toLowerCase().trim().replace(/[^a-z0-9]/g, '') : '';
+
+  const matchingKeys = Object.keys(chatDatabase).filter(k => 
+    k.includes(cleanHost) || (cleanName && k.includes(cleanName))
+  );
+  const conversations: any[] = [];
+
+  matchingKeys.forEach(k => {
+    const msgs = chatDatabase[k];
+    if (msgs && msgs.length > 0) {
+      const lastMsg = msgs[msgs.length - 1];
+      const otherPartyName = lastMsg.senderRole === 'host' ? (lastMsg.recipientUsername || 'Caller') : lastMsg.senderName;
+      conversations.push({
+        id: k,
+        callerName: otherPartyName,
+        avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=300&q=80',
+        lastMessage: lastMsg.text,
+        time: lastMsg.timeFormatted,
+        unread: lastMsg.senderRole === 'caller' ? 1 : 0,
+        messages: msgs,
+      });
+    }
+  });
+
+  if (conversations.length === 0) {
+    conversations.push({
+      id: 'c_default',
+      callerName: 'Amit (Caller)',
+      avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=300&q=80',
+      lastMessage: 'Hello! I am ready to connect for a session.',
+      time: 'Just now',
+      unread: 1,
+      messages: [
+        {
+          id: 'm_def_1',
+          senderId: 'u_amit',
+          senderName: 'Amit (Caller)',
+          senderRole: 'caller',
+          recipientId: username,
+          recipientUsername: username,
+          text: 'Hello! I am ready to connect for a session.',
+          timestamp: Date.now(),
+          timeFormatted: 'Just now',
+        }
+      ]
+    });
+  }
+
+  res.json({ success: true, conversations });
 });
 
 // Check if a call session was ended by either party
