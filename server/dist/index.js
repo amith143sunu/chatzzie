@@ -24,35 +24,58 @@ exports.io = io;
 app.use((0, cors_1.default)());
 app.use(express_1.default.json());
 const PORT = process.env.PORT || 8682;
-const AGORA_APP_ID = process.env.AGORA_APP_ID || 'mock_agora_app_id';
-const AGORA_APP_CERTIFICATE = process.env.AGORA_APP_CERTIFICATE || 'mock_agora_certificate';
+const AGORA_APP_ID = process.env.AGORA_APP_ID || 'd05f3da99ac3405e9e8eabccbf4367f6';
+const AGORA_APP_CERTIFICATE = process.env.AGORA_APP_CERTIFICATE || '49062fbe5388492aa29e14acd1c32274';
 // -------------------------------------------------------------------
 // 1. PUBLIC CONFIG & DISCOVERY ENDPOINTS
 // -------------------------------------------------------------------
-// Instant Quick Sign-Up (Zero OTP - Name & Role)
-app.post('/api/auth/quick-signup', (req, res) => {
+// Instant Quick Sign-Up & Login (Zero OTP - Name & Role)
+const handleAuthLoginOrSignup = (req, res) => {
     const { name, role, phone } = req.body;
-    const cleanName = (name || 'Friend').trim();
+    const cleanName = (name || (role === 'listener' ? 'Host' : 'Talker')).trim();
     const id = `u_${Date.now()}`;
     const userPhone = phone || `98${Math.floor(10000000 + Math.random() * 90000000)}`;
-    const username = cleanName.toLowerCase().replace(/[^a-z0-9]/g, '_') + '_' + Math.floor(100 + Math.random() * 900);
+    const cleanUsername = cleanName.toLowerCase().replace(/[^a-z0-9]/g, '_');
     const avatarUrl = `https://images.unsplash.com/photo-${role === 'listener' ? '1544005313-94ddf0286df2' : '1535713875002-d1d0cf377fde'}?auto=format&fit=crop&w=300&q=80`;
     if (role === 'listener') {
+        // Check if matching listener already exists in mock database
+        const existingListener = db_1.mockListeners.find(l => l.name.toLowerCase() === cleanName.toLowerCase() ||
+            l.username.toLowerCase() === cleanUsername.toLowerCase());
+        if (existingListener) {
+            existingListener.status = 'online';
+            existingListener.isAvailableForCalls = true;
+            existingListener.isVideoEnabled = true;
+            io.emit('listener_status_change', { listenerId: existingListener.id, status: 'online' });
+            io.emit('listeners_updated', db_1.mockListeners);
+            return res.json({
+                success: true,
+                user: {
+                    id: existingListener.userId || existingListener.id,
+                    name: existingListener.name,
+                    phone: userPhone,
+                    username: existingListener.username,
+                    role: 'listener',
+                    avatarUrl: existingListener.avatarUrl,
+                    walletBalanceINR: 0,
+                    listenerProfile: existingListener,
+                }
+            });
+        }
         const newListener = {
             id: `list_${Date.now()}`,
             userId: id,
-            username: username,
+            username: cleanUsername,
             name: cleanName,
             avatarUrl,
-            bio: `Compassionate and attentive listener ready to talk, listen, and support you.`,
+            bio: `Compassionate and attentive verified host ready to talk, listen, and support you.`,
             languages: ['Hindi', 'English'],
             callRatePerMinINR: 9,
             isVideoEnabled: true,
             status: 'online',
             rating: 5.0,
-            totalReviews: 1,
-            followersCount: 14,
-            giftsCount: 2,
+            totalReviews: 4,
+            followersCount: 18,
+            giftsCount: 3,
             voiceBioUrl: 'https://actions.google.com/sounds/v1/speech/voice_intro_1.mp3',
             voiceBioDurationSeconds: 18,
             kycStatus: 'verified',
@@ -72,13 +95,14 @@ app.post('/api/auth/quick-signup', (req, res) => {
             createdAt: new Date().toISOString(),
         });
         io.emit('listener_status_change', { listenerId: newListener.id, status: 'online' });
+        io.emit('listeners_updated', db_1.mockListeners);
         return res.json({
             success: true,
             user: {
                 id,
                 name: cleanName,
                 phone: userPhone,
-                username,
+                username: cleanUsername,
                 role: 'listener',
                 avatarUrl,
                 walletBalanceINR: 0,
@@ -91,7 +115,7 @@ app.post('/api/auth/quick-signup', (req, res) => {
             id,
             phone: userPhone,
             name: cleanName,
-            username,
+            username: cleanUsername,
             avatarUrl,
             walletBalanceINR: 60.00, // Starter wallet balance for testing calls
             role: 'talker',
@@ -105,7 +129,9 @@ app.post('/api/auth/quick-signup', (req, res) => {
             user: newUser
         });
     }
-});
+};
+app.post('/api/auth/quick-signup', handleAuthLoginOrSignup);
+app.post('/api/auth/login', handleAuthLoginOrSignup);
 app.get('/api/config', (req, res) => {
     res.json({
         appName: 'Chatzie',
@@ -334,11 +360,13 @@ app.get('/api/calls/token', (req, res) => {
         res.status(500).json({ error: 'Failed to generate token', details: err.message });
     }
 });
+const activeCallChannels = {};
 const activeRingingCalls = {};
 // 1. Caller dials host
 app.post('/api/calls/dial', (req, res) => {
     const { callerName, callerId, listenerUsername, callType, ratePerMin } = req.body;
     const channel = `call_${listenerUsername}`;
+    activeCallChannels[channel] = { status: 'active', timestamp: Date.now() };
     activeRingingCalls[listenerUsername] = {
         channel,
         callerName: callerName || 'Caller',
@@ -382,9 +410,23 @@ app.post('/api/calls/decline', (req, res) => {
     }
     res.json({ success: true });
 });
+// Check if a call session was ended by either party
+app.get('/api/calls/status', (req, res) => {
+    const channel = req.query.channel;
+    if (!channel)
+        return res.json({ status: 'active', ended: false });
+    const session = activeCallChannels[channel];
+    if (session && session.status === 'ended') {
+        return res.json({ status: 'ended', ended: true });
+    }
+    res.json({ status: 'active', ended: false });
+});
 // Start call session
 app.post('/api/calls/start', (req, res) => {
     const { channel, caller, listener, type, ratePerMinINR } = req.body;
+    if (channel) {
+        activeCallChannels[channel] = { status: 'active', timestamp: Date.now() };
+    }
     const existing = exports.activeLiveSessions.find(s => s.channel === channel);
     if (!existing) {
         const newSess = {
@@ -407,6 +449,10 @@ app.post('/api/calls/start', (req, res) => {
 // Audio: ₹9/min caller -> ₹4.50/min listener | Video: ₹30/min caller -> ₹16/min listener
 app.post('/api/calls/end', (req, res) => {
     const { channel, durationSeconds, callerId = 'u-amit', listenerId, callType = 'audio' } = req.body;
+    if (channel) {
+        activeCallChannels[channel] = { status: 'ended', timestamp: Date.now() };
+        io.emit('call_ended', { channel });
+    }
     const billedMinutes = Math.max(1, Math.ceil((Number(durationSeconds) || 0) / 60));
     const ratePerMin = callType === 'video' ? 30.0 : 9.0;
     const callerCharged = Number((billedMinutes * ratePerMin).toFixed(2));

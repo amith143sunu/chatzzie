@@ -2,11 +2,11 @@
   "/_not-found": "app/_not-found.js",
   "/page": "app/page.js",
   "/admin/listeners/page": "app/admin/listeners/page.js",
-  "/admin/live-calls/page": "app/admin/live-calls/page.js",
-  "/admin/users/page": "app/admin/users/page.js",
   "/admin/pricing/page": "app/admin/pricing/page.js",
+  "/admin/live-calls/page": "app/admin/live-calls/page.js",
+  "/admin/push-center/page": "app/admin/push-center/page.js",
   "/admin/reports/page": "app/admin/reports/page.js",
   "/admin/payouts/page": "app/admin/payouts/page.js",
   "/admin/page": "app/admin/page.js",
-  "/admin/push-center/page": "app/admin/push-center/page.js"
+  "/admin/users/page": "app/admin/users/page.js"
 }

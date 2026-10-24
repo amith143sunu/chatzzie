@@ -178,6 +178,9 @@ export default function App() {
     setCurrentScreen('tab_home');
   };
 
+  const [activeCallChannel, setActiveCallChannel] = useState<string>('');
+  const [activePartnerName, setActivePartnerName] = useState<string>('');
+
   const handleHostAcceptCall = (call: any) => {
     const hostProfile: ListenerProfile = {
       id: userId,
@@ -195,6 +198,8 @@ export default function App() {
     };
     setSelectedListener(hostProfile);
     setActiveCallType(call.callType || 'video');
+    setActiveCallChannel(call.channel || `call_${userUsername}`);
+    setActivePartnerName(call.callerName || 'Caller');
     setCurrentScreen('active_call');
   };
 
@@ -300,6 +305,10 @@ export default function App() {
       return;
     }
 
+    const channel = `call_${listener.username}`;
+    setActiveCallChannel(channel);
+    setActivePartnerName(listener.name);
+
     // Send ring signal to backend for host
     try {
       const baseUrl = getApiBaseUrl();
@@ -320,7 +329,7 @@ export default function App() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          channel: `call_${listener.username}`,
+          channel,
           caller: `${userName || 'Caller'} (${userId})`,
           listener: `${listener.name} (@${listener.username})`,
           type,
@@ -390,6 +399,9 @@ export default function App() {
 
     const targetListener = lowBalanceModal.listener || selectedListener;
     const targetType = lowBalanceModal.type || activeCallType;
+    const channel = `call_${targetListener.username}`;
+    setActiveCallChannel(channel);
+    setActivePartnerName(targetListener.name);
 
     setLowBalanceModal({ visible: false, listener: null, type: 'audio' });
 
@@ -515,6 +527,9 @@ export default function App() {
               listener={selectedListener}
               callType={activeCallType}
               userBalanceINR={walletBalanceINR}
+              isHost={true}
+              channelNameOverride={activeCallChannel}
+              partnerNameOverride={activePartnerName}
               onEndCall={handleEndCall}
               onBalanceDepleted={() => {}}
             />
@@ -699,6 +714,9 @@ export default function App() {
             listener={selectedListener}
             callType={activeCallType}
             userBalanceINR={walletBalanceINR}
+            isHost={false}
+            channelNameOverride={activeCallChannel}
+            partnerNameOverride={activePartnerName}
             onEndCall={handleEndCall}
             onBalanceDepleted={() => {
               Alert.alert('Call Disconnected', 'Your wallet balance has depleted.');

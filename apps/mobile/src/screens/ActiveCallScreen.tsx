@@ -34,6 +34,9 @@ interface ActiveCallScreenProps {
   listener: ListenerProfile;
   callType: 'audio' | 'video';
   userBalanceINR: number;
+  isHost?: boolean;
+  channelNameOverride?: string;
+  partnerNameOverride?: string;
   onEndCall: (durationSeconds: number, totalCost: number) => void;
   onBalanceDepleted: () => void;
 }
@@ -42,9 +45,15 @@ export const ActiveCallScreen: React.FC<ActiveCallScreenProps> = ({
   listener,
   callType,
   userBalanceINR,
+  isHost = false,
+  channelNameOverride,
+  partnerNameOverride,
   onEndCall,
   onBalanceDepleted,
 }) => {
+  const channelName = channelNameOverride || `call_${listener.username}`;
+  const partnerDisplayName = partnerNameOverride || listener.name;
+
   const [secondsElapsed, setSecondsElapsed] = useState(0);
   const [isMuted, setIsMuted] = useState(false);
   const [isSpeakerOn, setIsSpeakerOn] = useState(true);
@@ -204,7 +213,10 @@ export const ActiveCallScreen: React.FC<ActiveCallScreenProps> = ({
         client.on('user-left', () => {
           setHasRemoteUser(false);
           setHasRemoteVideo(false);
-          setAgoraStatus('Partner left channel');
+          setAgoraStatus('Partner ended the call');
+          setTimeout(() => {
+            handleEnd();
+          }, 600);
         });
 
         // 1. Create local microphone audio track
@@ -215,7 +227,7 @@ export const ActiveCallScreen: React.FC<ActiveCallScreenProps> = ({
         }
         localTrackRef.current = micTrack;
 
-        // 2. If video call, create camera video track
+        // 2. If video call, create camera video track and play local preview immediately
         let cameraTrack: any = null;
         if (callType === 'video') {
           try {
@@ -223,6 +235,8 @@ export const ActiveCallScreen: React.FC<ActiveCallScreenProps> = ({
               encoderConfig: '480p_1',
             });
             cameraTrackRef.current = cameraTrack;
+            // Play self-view camera immediately in PiP box
+            playLocalCamera(cameraTrack);
           } catch (camErr: any) {
             console.warn('Camera initialization notice:', camErr);
             setCameraBlocked(true);
@@ -231,74 +245,108 @@ export const ActiveCallScreen: React.FC<ActiveCallScreenProps> = ({
         }
 
         // 3. Fetch signed Agora token from Chatzie server
-        const channelName = `call_${listener.username}`;
         const uid = Math.floor(1000 + Math.random() * 9000);
         currentUidRef.current = uid;
         const baseUrl = getApiBaseUrl();
 
-        const res = await fetch(`${baseUrl}/api/calls/token?channel=${channelName}&uid=${uid}`);
-        const data = await res.json();
+        // Production Agora App ID fallback
+        let appIdToJoin = 'd05f3da99ac3405e9e8eabccbf4367f6';
+        let tokenToJoin: string | null = null;
 
-        if (data.token && data.appId) {
-          await client.join(data.appId, data.channel, data.token, uid);
-          const tracksToPublish = cameraTrack ? [micTrack, cameraTrack] : [micTrack];
-          await client.publish(tracksToPublish);
-
-          // Play local camera preview in PiP box
-          if (cameraTrack) {
-            playLocalCamera(cameraTrack);
-          }
-
-          // Check if remote users are already present
-          if (client.remoteUsers && client.remoteUsers.length > 0) {
-            setHasRemoteUser(true);
-            setAgoraStatus('Live 2-Way Connected!');
-            client.remoteUsers.forEach(async (u: any) => {
-              if (u.hasAudio) {
-                await client.subscribe(u, 'audio');
-                try {
-                  u.audioTrack?.play();
-                } catch (e) {
-                  setAutoplayBlocked(true);
-                }
-              }
-              if (u.hasVideo) {
-                await client.subscribe(u, 'video');
-                setHasRemoteVideo(true);
-                playRemoteVideo(u.videoTrack);
-              }
-            });
-          } else {
-            setAgoraStatus(callType === 'video' ? 'Camera Live • Waiting for Partner...' : 'Microphone Live • Waiting for Partner...');
-          }
-
-          // Periodic RTC Diagnostics Poller
-          statsTimer = setInterval(() => {
-            if (clientRef.current) {
-              try {
-                const stats = clientRef.current.getRTCStats();
-                const count = (clientRef.current.remoteUsers ? clientRef.current.remoteUsers.length : 0) + 1;
-                setRtcStats({
-                  userCount: count,
-                  rtt: stats.RTT || 14
-                });
-                if (count > 1) {
-                  setHasRemoteUser(true);
-                }
-              } catch (e) {}
+        try {
+          const res = await fetch(`${baseUrl}/api/calls/token?channel=${channelName}&uid=${uid}`);
+          if (res.ok) {
+            const data = await res.json();
+            if (data.appId && data.appId !== 'mock_agora_app_id') {
+              appIdToJoin = data.appId;
             }
-          }, 1500);
+            if (data.token && !data.token.startsWith('mock_')) {
+              tokenToJoin = data.token;
+            }
+          }
+        } catch (tokenErr) {
+          console.warn('Token fetch notice, using production appId:', tokenErr);
         }
+
+        // Join Agora RTC channel with live credentials
+        setAgoraStatus('Connecting to 2-Way Room...');
+        await client.join(appIdToJoin, channelName, tokenToJoin, uid);
+        const tracksToPublish = cameraTrack ? [micTrack, cameraTrack] : [micTrack];
+        await client.publish(tracksToPublish);
+
+        // Re-affirm local camera preview
+        if (cameraTrack) {
+          playLocalCamera(cameraTrack);
+        }
+
+        // Check if remote partner is already present
+        if (client.remoteUsers && client.remoteUsers.length > 0) {
+          setHasRemoteUser(true);
+          setAgoraStatus('Live 2-Way Connected!');
+          client.remoteUsers.forEach(async (u: any) => {
+            if (u.hasAudio) {
+              await client.subscribe(u, 'audio');
+              try {
+                u.audioTrack?.play();
+              } catch (e) {
+                setAutoplayBlocked(true);
+              }
+            }
+            if (u.hasVideo) {
+              await client.subscribe(u, 'video');
+              setHasRemoteVideo(true);
+              playRemoteVideo(u.videoTrack);
+            }
+          });
+        } else {
+          setAgoraStatus(callType === 'video' ? 'Camera Live • Waiting for Partner...' : 'Microphone Live • Waiting for Partner...');
+        }
+
+        // Periodic call status poller (detects when remote partner ends the call in real time)
+        statusTimer = setInterval(async () => {
+          try {
+            const statusRes = await fetch(`${baseUrl}/api/calls/status?channel=${channelName}`);
+            if (statusRes.ok) {
+              const statusData = await statusRes.json();
+              if (statusData.ended) {
+                setAgoraStatus('Call ended by partner');
+                if (statusTimer) clearInterval(statusTimer);
+                setTimeout(() => {
+                  handleEnd();
+                }, 500);
+              }
+            }
+          } catch (e) {}
+        }, 1200);
+
+        // Periodic RTC Diagnostics Poller
+        statsTimer = setInterval(() => {
+          if (clientRef.current) {
+            try {
+              const stats = clientRef.current.getRTCStats();
+              const count = (clientRef.current.remoteUsers ? clientRef.current.remoteUsers.length : 0) + 1;
+              setRtcStats({
+                userCount: count,
+                rtt: stats.RTT || 14
+              });
+              if (count > 1) {
+                setHasRemoteUser(true);
+              }
+            } catch (e) {}
+          }
+        }, 1500);
       } catch (err: any) {
         console.warn('Agora connection notice:', err);
         setAgoraStatus('Microphone Live • Ready');
       }
     };
 
+    let statusTimer: any = null;
     connectAgora();
 
     return () => {
       isCancelled = true;
+      if (statusTimer) clearInterval(statusTimer);
       if (statsTimer) clearInterval(statsTimer);
       if (localTrackRef.current) {
         localTrackRef.current.close();
@@ -313,7 +361,7 @@ export const ActiveCallScreen: React.FC<ActiveCallScreenProps> = ({
         clientRef.current.leave();
       }
     };
-  }, [listener.username, callType]);
+  }, [channelName, callType]);
 
   const toggleMute = () => {
     const next = !isMuted;
@@ -331,8 +379,10 @@ export const ActiveCallScreen: React.FC<ActiveCallScreenProps> = ({
     }
   };
 
-  // Universal Tariff: ₹30/min for video, ₹9/min for voice
-  const effectiveRatePerMinINR = callType === 'video' ? 30 : 9;
+  // Universal Tariff: Video ₹30/min (host earns ₹16), Audio ₹9/min (host earns ₹4.50)
+  const effectiveRatePerMinINR = isHost
+    ? (callType === 'video' ? 16 : 4.5)
+    : (callType === 'video' ? 30 : 9);
 
   // Timer & Per-Minute Balance Deduction
   useEffect(() => {
@@ -340,8 +390,8 @@ export const ActiveCallScreen: React.FC<ActiveCallScreenProps> = ({
       setSecondsElapsed((prev) => {
         const nextSeconds = prev + 1;
 
-        // Every 60 seconds, deduct 1 minute call tariff
-        if (nextSeconds % 60 === 0) {
+        // Every 60 seconds, deduct 1 minute call tariff ONLY for callers (not hosts)
+        if (nextSeconds % 60 === 0 && !isHost) {
           setRemainingBalance((curBal) => {
             const nextBal = curBal - effectiveRatePerMinINR;
             if (nextBal < 0) {
@@ -357,7 +407,7 @@ export const ActiveCallScreen: React.FC<ActiveCallScreenProps> = ({
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [effectiveRatePerMinINR, onBalanceDepleted]);
+  }, [effectiveRatePerMinINR, isHost, onBalanceDepleted]);
 
   const formatTime = (secs: number) => {
     const m = Math.floor(secs / 60);
@@ -374,9 +424,12 @@ export const ActiveCallScreen: React.FC<ActiveCallScreenProps> = ({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          channel: `call_${listener.username}`,
+          channel: channelName,
           durationSeconds: secondsElapsed,
           totalCost,
+          callerId: isHost ? undefined : 'u_caller',
+          listenerId: listener.id,
+          callType,
         }),
       }).catch(() => {});
     } catch (e) {}
@@ -389,7 +442,7 @@ export const ActiveCallScreen: React.FC<ActiveCallScreenProps> = ({
       <View style={styles.topBar}>
         <View style={styles.secureBadge}>
           <ShieldCheck size={13} color="#93C5FD" />
-          <Text style={styles.secureText}>Masked Call</Text>
+          <Text style={styles.secureText}>{isHost ? 'Host Live • 2-Way' : '1:1 Masked Call'}</Text>
         </View>
 
         <TouchableOpacity
@@ -403,7 +456,9 @@ export const ActiveCallScreen: React.FC<ActiveCallScreenProps> = ({
 
         <View style={styles.ratePill}>
           <Text style={styles.ratePillText}>
-            ₹{effectiveRatePerMinINR}/min {callType === 'video' ? 'Video' : 'Voice'}
+            {isHost
+              ? `Earning: ₹${effectiveRatePerMinINR}/min`
+              : `₹${effectiveRatePerMinINR}/min • Bal: ₹${remainingBalance.toFixed(2)}`}
           </Text>
         </View>
       </View>
@@ -423,11 +478,19 @@ export const ActiveCallScreen: React.FC<ActiveCallScreenProps> = ({
           {!hasRemoteVideo && (
             <View style={styles.videoWaitingOverlay}>
               <Image source={{ uri: listener.avatarUrl }} style={styles.listenerAvatarVideo} />
-              <Text style={styles.videoWaitingName}>{listener.name}</Text>
+              <Text style={styles.videoWaitingName}>{partnerDisplayName}</Text>
               <Text style={styles.videoWaitingSub}>
                 {hasRemoteUser ? 'Partner in room • Starting video stream...' : 'Waiting for partner to connect...'}
               </Text>
             </View>
+          )}
+
+          {/* Autoplay Audio Unblock Banner for Video Mode */}
+          {autoplayBlocked && (
+            <TouchableOpacity style={styles.autoplayBanner} onPress={playTestChime} activeOpacity={0.85}>
+              <Volume2 size={14} color="#FFFFFF" />
+              <Text style={styles.autoplayBannerText}>Click here to unmute partner audio</Text>
+            </TouchableOpacity>
           )}
 
           {/* Camera Permission Alert Banner */}
@@ -507,8 +570,10 @@ export const ActiveCallScreen: React.FC<ActiveCallScreenProps> = ({
             <Image source={{ uri: listener.avatarUrl }} style={styles.listenerAvatar} />
           </View>
 
-          <Text style={styles.listenerName}>{listener.name}</Text>
-          <Text style={styles.listenerHandle}>@{listener.username}</Text>
+          <Text style={styles.listenerName}>{partnerDisplayName}</Text>
+          <Text style={styles.listenerHandle}>
+            {isHost ? 'Connected with Caller' : `@${listener.username}`}
+          </Text>
 
           {/* Live Timer */}
           <View style={styles.timerBadge}>
