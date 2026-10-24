@@ -20,7 +20,7 @@ import { PolicyModal, PolicyType } from './src/screens/PolicyModal';
 import { HelpScreen } from './src/screens/HelpScreen';
 import { ListenerOnboardingModal } from './src/screens/ListenerOnboardingModal';
 import { ListenerEarningsModal } from './src/screens/ListenerEarningsModal';
-import { WelcomeGateModal } from './src/components/WelcomeGateModal';
+import { LoginScreen } from './src/screens/LoginScreen';
 import { HostLiveScreen } from './src/screens/HostLiveScreen';
 import { DeviceFrame, ViewMode } from './src/components/DeviceFrame';
 import { InsufficientBalanceModal } from './src/components/InsufficientBalanceModal';
@@ -110,10 +110,10 @@ export default function App() {
   const [userUsername, setUserUsername] = useState<string>('amit_caller');
   const [userId, setUserId] = useState<string>('u_amit');
   const [userAvatar, setUserAvatar] = useState('https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=200&q=80');
-  const [showWelcomeGate, setShowWelcomeGate] = useState<boolean>(() => {
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
     if (typeof window !== 'undefined' && window.localStorage) {
       const saved = window.localStorage.getItem('chatzie_user_profile') || window.localStorage.getItem('chatzie_current_user');
-      return !saved;
+      return !!saved;
     }
     return false;
   });
@@ -132,14 +132,15 @@ export default function App() {
           if (parsed.avatarUrl) setUserAvatar(parsed.avatarUrl);
           if (typeof parsed.walletBalanceINR === 'number') setWalletBalanceINR(parsed.walletBalanceINR);
           if (parsed.role === 'listener') setIsListenerVerified(true);
+          setIsAuthenticated(true);
         } else {
-          setShowWelcomeGate(true);
+          setIsAuthenticated(false);
         }
       }
     } catch (e) {}
   }, []);
 
-  const handleWelcomeComplete = (u: any) => {
+  const handleLoginSuccess = (u: any) => {
     setUserName(u.name);
     setUserRole(u.role);
     setUserId(u.id);
@@ -148,7 +149,7 @@ export default function App() {
     if (typeof u.walletBalanceINR === 'number') {
       setWalletBalanceINR(u.walletBalanceINR);
     }
-    setShowWelcomeGate(false);
+    setIsAuthenticated(true);
 
     if (u.role === 'listener') {
       setIsListenerVerified(true);
@@ -169,7 +170,7 @@ export default function App() {
     setUserRole('talker');
     setUserName('');
     setUserUsername('');
-    setShowWelcomeGate(true);
+    setIsAuthenticated(false);
     setCurrentScreen('tab_home');
   };
 
@@ -487,6 +488,19 @@ export default function App() {
     );
   };
 
+  // 1. Unauthenticated Visitor -> Render ONLY the dedicated Full-Screen Login Page!
+  if (!isAuthenticated) {
+    return (
+      <ErrorBoundary>
+        <SafeAreaView style={{ flex: 1, backgroundColor: '#0F172A' }}>
+          <StatusBar barStyle="light-content" backgroundColor="#0F172A" />
+          <LoginScreen onLoginSuccess={handleLoginSuccess} />
+        </SafeAreaView>
+      </ErrorBoundary>
+    );
+  }
+
+  // 2. Authenticated as Host (Listener) -> Render Host Live Console
   if (userRole === 'listener') {
     return (
       <ErrorBoundary>
@@ -509,10 +523,6 @@ export default function App() {
               onLogout={handleLogout}
             />
           )}
-          <WelcomeGateModal
-            visible={showWelcomeGate}
-            onComplete={handleWelcomeComplete}
-          />
         </SafeAreaView>
       </ErrorBoundary>
     );
@@ -763,11 +773,7 @@ export default function App() {
           }}
         />
 
-        {/* Welcome Gate Onboarding Modal (Zero OTP) */}
-        <WelcomeGateModal
-          visible={showWelcomeGate}
-          onComplete={handleWelcomeComplete}
-        />
+
 
         {/* Legal Policy Viewer Modal */}
         <PolicyModal
