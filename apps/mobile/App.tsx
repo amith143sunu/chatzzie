@@ -172,6 +172,8 @@ export default function App() {
     if (typeof window !== 'undefined' && window.localStorage) {
       window.localStorage.setItem('chatzie_auth_session', JSON.stringify(u));
     }
+    setCurrentScreen('tab_home');
+    setActiveTab('home');
     setIsAuthenticated(true);
 
     if (u.role === 'listener') {
@@ -237,8 +239,28 @@ export default function App() {
     setCurrentScreen('active_call');
   };
 
+  // Fallback safe host profile to prevent undefined member crashes
+  const DEFAULT_PLACEHOLDER_HOST: ListenerProfile = {
+    id: 'host_default',
+    userId: 'u_default',
+    username: 'host',
+    name: 'Verified Host',
+    avatarUrl: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=300&q=80',
+    bio: 'Verified compassionate host.',
+    languages: ['Hindi', 'English'],
+    callRatePerMinINR: 9,
+    isVideoEnabled: true,
+    status: 'online',
+    rating: 5.0,
+    totalReviews: 0,
+    followersCount: 0,
+    giftsCount: 0,
+    kycStatus: 'verified',
+    isAvailableForCalls: true,
+  };
+
   // Active Contexts
-  const [selectedListener, setSelectedListener] = useState<ListenerProfile>(mockListeners[0]);
+  const [selectedListener, setSelectedListener] = useState<ListenerProfile>(DEFAULT_PLACEHOLDER_HOST);
   const [activeCallType, setActiveCallType] = useState<'audio' | 'video'>('audio');
   const [isListenerVerified, setIsListenerVerified] = useState<boolean>(false);
   const [showOnboardingModal, setShowOnboardingModal] = useState<boolean>(false);
@@ -295,7 +317,7 @@ export default function App() {
   });
   const [incomingCallData, setIncomingCallData] = useState<{ visible: boolean; listener: ListenerProfile }>({
     visible: false,
-    listener: mockListeners[1],
+    listener: DEFAULT_PLACEHOLDER_HOST,
   });
   const [policyModal, setPolicyModal] = useState<{ visible: boolean; type: PolicyType }>({
     visible: false,
@@ -358,7 +380,7 @@ export default function App() {
         const autocallHandle = params.get('autocall');
         const autocallType = params.get('type') === 'video' ? 'video' : 'audio';
         if (autocallHandle) {
-          const found = mockListeners.find(l => l.username === autocallHandle) || mockListeners[0];
+          const found = listeners.find(l => l.username === autocallHandle) || DEFAULT_PLACEHOLDER_HOST;
           setSelectedListener(found);
           setActiveCallType(autocallType);
           setCurrentScreen('active_call');
@@ -842,7 +864,7 @@ export default function App() {
             onEndCall={handleEndCall}
             onBalanceDepleted={() => {
               Alert.alert('Call Disconnected', 'Your wallet balance has depleted.');
-              handleEndCall(60, selectedListener.callRatePerMinINR);
+              handleEndCall(60, selectedListener?.callRatePerMinINR || 9);
             }}
           />
         )}
@@ -889,18 +911,21 @@ export default function App() {
         />
 
         {/* Incoming Call Simulation Modal */}
-        <IncomingCallModal
-          visible={incomingCallData.visible}
-          callerName={incomingCallData.listener.name}
-          callerAvatar={incomingCallData.listener.avatarUrl}
-          callType="audio"
-          ratePerMin={incomingCallData.listener.callRatePerMinINR}
-          onAccept={() => {
-            setIncomingCallData({ ...incomingCallData, visible: false });
-            handleStartCall(incomingCallData.listener, 'audio');
-          }}
-          onDecline={() => setIncomingCallData({ ...incomingCallData, visible: false })}
-        />
+        {incomingCallData.visible && incomingCallData.listener && (
+          <IncomingCallModal
+            visible={incomingCallData.visible}
+            callerName={incomingCallData.listener?.name || 'Incoming Caller'}
+            callerAvatar={incomingCallData.listener?.avatarUrl || 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=300&q=80'}
+            callType="audio"
+            ratePerMin={incomingCallData.listener?.callRatePerMinINR || 9}
+            onAccept={() => {
+              const target = incomingCallData.listener;
+              setIncomingCallData({ ...incomingCallData, visible: false });
+              if (target) handleStartCall(target, 'audio');
+            }}
+            onDecline={() => setIncomingCallData({ ...incomingCallData, visible: false })}
+          />
+        )}
 
         {/* Insufficient Balance Bottom Sheet */}
         <InsufficientBalanceModal
@@ -1003,7 +1028,7 @@ export default function App() {
               } catch (e) {}
             }}
             onDeclined={() => {
-              const name = outgoingDialData.listener.name;
+              const name = outgoingDialData?.listener?.name || 'Host';
               setOutgoingDialData(null);
               Alert.alert('Call Not Answered', `${name} is currently away or declined the call.`);
             }}

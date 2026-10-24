@@ -41,8 +41,8 @@ interface HomeScreenProps {
 }
 
 export const HomeScreen: React.FC<HomeScreenProps> = ({
-  balanceINR,
-  listeners,
+  balanceINR = 0,
+  listeners = [],
   isDesktop = false,
   userName = 'User',
   onBalancePress,
@@ -86,9 +86,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                 <TouchableOpacity
                   style={styles.desktopAutoMatchBtn}
                   onPress={() => {
-                    const available = listeners.filter(l => l.status === 'online');
-                    const target = available.length > 0 ? available[0] : listeners[0];
-                    onCallPress(target, 'audio');
+                    const available = (listeners || []).filter(l => l.status === 'online');
+                    const target = available.length > 0 ? available[0] : (listeners?.[0] || null);
+                    if (target) onCallPress(target, 'audio');
                   }}
                   activeOpacity={0.88}
                 >
@@ -147,9 +147,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           <TouchableOpacity
             style={styles.instantMatchBanner}
             onPress={() => {
-              const available = listeners.filter(l => l.status === 'online');
-              const target = available.length > 0 ? available[0] : listeners[0];
-              onCallPress(target, 'audio');
+              const available = (listeners || []).filter(l => l.status === 'online');
+              const target = available.length > 0 ? available[0] : (listeners?.[0] || null);
+              if (target) onCallPress(target, 'audio');
             }}
             activeOpacity={0.88}
           >
@@ -254,7 +254,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         </View>
 
         {/* Multi-column Grid on Desktop / Vertical on Mobile */}
-        {listeners.length === 0 ? (
+        {(listeners || []).length === 0 ? (
           <View style={styles.emptyCard}>
             <View style={styles.emptyIconCircle}>
               <Headphones size={28} color="#2563EB" />
@@ -269,7 +269,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           </View>
         ) : (
           <View style={isDesktop ? styles.desktopFeaturedGrid : styles.featuredList}>
-            {listeners.slice(0, isDesktop ? 4 : 3).map((listener) => (
+            {(listeners || []).slice(0, isDesktop ? 4 : 3).map((listener) => (
               <View key={listener.id} style={isDesktop ? styles.desktopCardCol : undefined}>
                 <View style={isDesktop ? styles.desktopListenerCard : styles.listenerItem}>
                   {/* Profile Click Target */}

@@ -36,7 +36,7 @@ interface DesktopHeaderProps {
 export const DesktopHeader: React.FC<DesktopHeaderProps> = ({
   activeTab,
   onTabChange,
-  balanceINR,
+  balanceINR = 0,
   onBalancePress,
   onAvatarPress,
   onBecomeListenerPress,
@@ -168,8 +168,8 @@ export const DesktopHeader: React.FC<DesktopHeaderProps> = ({
             title="Wallet Balance (Click to recharge)"
           >
             <Coins size={14} color="#D97706" />
-            <Text style={styles.balanceCoinsText}>{(balanceINR * 10).toLocaleString('en-IN')}</Text>
-            <Text style={styles.balanceInrText}>• ₹{balanceINR.toFixed(0)}</Text>
+            <Text style={styles.balanceCoinsText}>{(((balanceINR || 0) * 10)).toLocaleString('en-IN')}</Text>
+            <Text style={styles.balanceInrText}>• ₹{(balanceINR || 0).toFixed(0)}</Text>
             <View style={styles.addPlusCircle}>
               <Plus size={11} color="#FFFFFF" />
             </View>

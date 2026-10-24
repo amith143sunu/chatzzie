@@ -439,7 +439,7 @@ export const HostLiveScreen: React.FC<HostLiveScreenProps> = ({
               <View style={[styles.livePulseDot, !isLive && styles.pulseDotOffline]} />
             </View>
             <Text style={styles.brandSub}>
-              {hostName} • @{hostUsername}
+              {hostName || 'Host'} • @{hostUsername || 'host'}
             </Text>
           </View>
         </View>
@@ -448,7 +448,7 @@ export const HostLiveScreen: React.FC<HostLiveScreenProps> = ({
           {/* Quick Balance Pill */}
           <View style={styles.earningsPill}>
             <TrendingUp size={13} color="#10B981" />
-            <Text style={styles.earningsPillText}>Earned: ₹{totalEarningsINR.toFixed(2)}</Text>
+            <Text style={styles.earningsPillText}>Earned: ₹{(totalEarningsINR || 0).toFixed(2)}</Text>
           </View>
 
           {/* Online / Offline Toggle */}
@@ -581,7 +581,7 @@ export const HostLiveScreen: React.FC<HostLiveScreenProps> = ({
             <View style={styles.radarContainer}>
               <View style={[styles.radarOuterCircle, isLive && styles.radarOuterActive]}>
                 <View style={[styles.radarMidCircle, isLive && styles.radarMidActive]}>
-                  <Image source={{ uri: hostAvatar }} style={styles.hostAvatar} />
+                  <Image source={{ uri: hostAvatar || 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=300&q=80' }} style={styles.hostAvatar} />
                 </View>
               </View>
             </View>
@@ -589,7 +589,7 @@ export const HostLiveScreen: React.FC<HostLiveScreenProps> = ({
             <Text style={styles.hostGreeting}>
               {isLive ? `You are Live on Chatzie` : `Your Console is Paused`}
             </Text>
-            <Text style={styles.hostHandle}>@{hostUsername} • Verified Host</Text>
+            <Text style={styles.hostHandle}>@{hostUsername || 'host'} • Verified Host</Text>
 
             <View style={styles.statusDescriptionBox}>
               <View style={[styles.liveGreenPill, !isLive && styles.liveGreenPillOffline]}>
@@ -650,9 +650,9 @@ export const HostLiveScreen: React.FC<HostLiveScreenProps> = ({
                 <View style={[styles.statIconCircle, { backgroundColor: '#F3E8FF' }]}>
                   <IndianRupee size={18} color="#7C3AED" />
                 </View>
-                <Text style={[styles.statValue, { color: '#7C3AED' }]}>₹{availableBalanceINR.toFixed(2)}</Text>
+                <Text style={[styles.statValue, { color: '#7C3AED' }]}>₹{(availableBalanceINR || 0).toFixed(2)}</Text>
                 <Text style={styles.statLabel}>Available for UPI</Text>
-                <Text style={styles.statSub}>Total: ₹{totalEarningsINR.toFixed(2)}</Text>
+                <Text style={styles.statSub}>Total: ₹{(totalEarningsINR || 0).toFixed(2)}</Text>
               </View>
             </View>
           </View>
@@ -891,7 +891,7 @@ export const HostLiveScreen: React.FC<HostLiveScreenProps> = ({
                   </View>
 
                   <View style={styles.callLogEarning}>
-                    <Text style={styles.callLogEarningAmount}>+₹{cl.earnedINR.toFixed(2)}</Text>
+                    <Text style={styles.callLogEarningAmount}>+₹{(cl.earnedINR || 0).toFixed(2)}</Text>
                     <Text style={styles.callLogEarningLabel}>Credited to Wallet</Text>
                   </View>
                 </View>
@@ -915,14 +915,14 @@ export const HostLiveScreen: React.FC<HostLiveScreenProps> = ({
           <View style={styles.payoutOverviewGrid}>
             <View style={styles.payoutCard}>
               <Text style={styles.payoutCardLabel}>Available for Withdrawal</Text>
-              <Text style={styles.payoutCardValue}>₹{availableBalanceINR.toFixed(2)}</Text>
+              <Text style={styles.payoutCardValue}>₹{(availableBalanceINR || 0).toFixed(2)}</Text>
               <Text style={styles.payoutCardSub}>Instant transfer to your registered UPI</Text>
             </View>
 
             <View style={styles.payoutCard}>
               <Text style={styles.payoutCardLabel}>Lifetime Host Earnings</Text>
               <Text style={[styles.payoutCardValue, { color: '#059669' }]}>
-                ₹{totalEarningsINR.toFixed(2)}
+                ₹{(totalEarningsINR || 0).toFixed(2)}
               </Text>
               <Text style={styles.payoutCardSub}>Across {completedCallsCount} completed calls</Text>
             </View>
@@ -996,7 +996,7 @@ export const HostLiveScreen: React.FC<HostLiveScreenProps> = ({
               payoutHistory.map((po, idx) => (
                 <View key={idx} style={styles.callLogRow}>
                   <View>
-                    <Text style={styles.callLogName}>₹{po.amountINR.toFixed(2)} via UPI</Text>
+                    <Text style={styles.callLogName}>₹{(po.amountINR || 0).toFixed(2)} via UPI</Text>
                     <Text style={styles.callLogSub}>{po.upiId || 'host@upi'} • {po.requestedAt?.split('T')[0] || 'Today'}</Text>
                   </View>
                   <View style={[styles.payoutStatusPill, po.status === 'approved' ? styles.statusApproved : styles.statusPending]}>

@@ -15,7 +15,7 @@ interface HeaderBarProps {
 export const HeaderBar: React.FC<HeaderBarProps> = ({
   userName = 'Amit',
   avatarUrl = 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=200&q=80',
-  balanceINR,
+  balanceINR = 0,
   onBalancePress,
   onAvatarPress,
   title
@@ -41,7 +41,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
         activeOpacity={0.85}
       >
         <Text style={styles.currencySymbol}>₹</Text>
-        <Text style={styles.balanceText}>{balanceINR.toFixed(2)}</Text>
+        <Text style={styles.balanceText}>{(balanceINR ?? 0).toFixed(2)}</Text>
       </TouchableOpacity>
     </View>
   );

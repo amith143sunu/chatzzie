@@ -30,8 +30,8 @@ interface CallsScreenProps {
 }
 
 export const CallsScreen: React.FC<CallsScreenProps> = ({
-  balanceINR,
-  listeners,
+  balanceINR = 0,
+  listeners = [],
   isDesktop = false,
   onBalancePress,
   onListenerPress,
@@ -42,14 +42,15 @@ export const CallsScreen: React.FC<CallsScreenProps> = ({
   const [videoOnly, setVideoOnly] = useState(false);
   const [showLangPicker, setShowLangPicker] = useState(false);
 
-  const filteredListeners = listeners.filter((listener) => {
+  const filteredListeners = (listeners || []).filter((listener) => {
+    if (!listener) return false;
     const matchesSearch =
-      listener.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      listener.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      listener.languages.some(l => l.toLowerCase().includes(searchQuery.toLowerCase()));
+      (listener.username || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (listener.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (Array.isArray(listener.languages) && listener.languages.some(l => (l || '').toLowerCase().includes(searchQuery.toLowerCase())));
 
     const matchesLang =
-      selectedLanguage === 'All' || listener.languages.includes(selectedLanguage);
+      selectedLanguage === 'All' || (Array.isArray(listener.languages) && listener.languages.includes(selectedLanguage));
 
     const matchesVideo = !videoOnly || listener.isVideoEnabled;
 
