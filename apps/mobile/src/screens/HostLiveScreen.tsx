@@ -188,11 +188,21 @@ export const HostLiveScreen: React.FC<HostLiveScreenProps> = ({
       if (chatRes.ok) {
         const chatData = await chatRes.json();
         if (chatData.success && Array.isArray(chatData.conversations)) {
-          setChatConversations(chatData.conversations);
+          // Normalize messages to guarantee sender consistency
+          const cleanConvs = chatData.conversations.map((conv: any) => ({
+            ...conv,
+            messages: (conv.messages || []).map((m: any) => ({
+              ...m,
+              sender: (m.sender === 'host' || m.senderRole === 'host' || m.senderId === hostUsername) ? 'host' : 'caller',
+              senderRole: (m.sender === 'host' || m.senderRole === 'host' || m.senderId === hostUsername) ? 'host' : 'caller',
+              time: m.time || m.timeFormatted || 'Just now',
+            })),
+          }));
+          setChatConversations(cleanConvs);
 
           // Check if any conversation has a new caller message
           let newestCallerMsg: any = null;
-          chatData.conversations.forEach((conv: any) => {
+          cleanConvs.forEach((conv: any) => {
             if (Array.isArray(conv.messages)) {
               conv.messages.forEach((m: any) => {
                 if (m.senderRole === 'caller' && m.timestamp && m.timestamp > (newestCallerMsg?.timestamp || 0)) {
@@ -225,8 +235,8 @@ export const HostLiveScreen: React.FC<HostLiveScreenProps> = ({
           }
 
           setActiveChatCaller((prevActive: any) => {
-            if (!prevActive) return isMobile ? null : (chatData.conversations[0] || null);
-            const updated = chatData.conversations.find((c: any) => c.id === prevActive.id);
+            if (!prevActive) return isMobile ? null : (cleanConvs[0] || null);
+            const updated = cleanConvs.find((c: any) => c.id === prevActive.id);
             return updated || prevActive;
           });
         }
@@ -379,8 +389,12 @@ export const HostLiveScreen: React.FC<HostLiveScreenProps> = ({
     const newMsg = {
       id: `m_${Date.now()}`,
       sender: 'host',
+      senderRole: 'host',
+      senderId: hostUsername,
+      senderName: hostName,
       text: hostReplyText.trim(),
       time: 'Just now',
+      timeFormatted: 'Just now',
     };
 
     setChatConversations(prev =>
@@ -744,32 +758,35 @@ export const HostLiveScreen: React.FC<HostLiveScreenProps> = ({
 
                   {/* Messages View */}
                   <ScrollView contentContainerStyle={styles.messagesScroll}>
-                    {activeChatCaller.messages.map((m: any) => (
-                      <View
-                        key={m.id}
-                        style={[
-                          styles.messageBubble,
-                          m.sender === 'host' ? styles.bubbleHost : styles.bubbleCaller,
-                        ]}
-                      >
-                        <Text
+                    {activeChatCaller.messages.map((m: any) => {
+                      const isHostMsg = m.sender === 'host' || m.senderRole === 'host' || m.senderId === hostUsername;
+                      return (
+                        <View
+                          key={m.id}
                           style={[
-                            styles.messageText,
-                            m.sender === 'host' ? styles.msgTextHost : styles.msgTextCaller,
+                            styles.messageBubble,
+                            isHostMsg ? styles.bubbleHost : styles.bubbleCaller,
                           ]}
                         >
-                          {m.text}
-                        </Text>
-                        <Text
-                          style={[
-                            styles.msgTime,
-                            m.sender === 'host' ? styles.msgTimeHost : styles.msgTimeCaller,
-                          ]}
-                        >
-                          {m.time}
-                        </Text>
-                      </View>
-                    ))}
+                          <Text
+                            style={[
+                              styles.messageText,
+                              isHostMsg ? styles.msgTextHost : styles.msgTextCaller,
+                            ]}
+                          >
+                            {m.text}
+                          </Text>
+                          <Text
+                            style={[
+                              styles.msgTime,
+                              isHostMsg ? styles.msgTimeHost : styles.msgTimeCaller,
+                            ]}
+                          >
+                            {m.time || m.timeFormatted || 'Just now'}
+                          </Text>
+                        </View>
+                      );
+                    })}
                   </ScrollView>
 
                   {/* Input Bar with Anti-Leak Filter */}

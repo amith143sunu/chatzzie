@@ -68,6 +68,15 @@ export const ActiveCallScreen: React.FC<ActiveCallScreenProps> = ({
   const [remainingBalance, setRemainingBalance] = useState(userBalanceINR);
   const [aiWarningModal, setAiWarningModal] = useState<{ visible: boolean; phrase: string } | null>(null);
 
+  // In-Call Real-Time Gift & Countdown Synchronization
+  const [incomingGiftRequest, setIncomingGiftRequest] = useState<any>(null);
+  const [giftCelebration, setGiftCelebration] = useState<any>(null);
+  const [hostCallerSecondsRemaining, setHostCallerSecondsRemaining] = useState<number>(0);
+  const [extraCoinsDeducted, setExtraCoinsDeducted] = useState<number>(0);
+  const [giftEarnedINR, setGiftEarnedINR] = useState<number>(0);
+  const [hostGiftRequestSentToast, setHostGiftRequestSentToast] = useState<string | null>(null);
+  const lastGiftCelebratedId = useRef<string>('');
+
   // Agora Live RTC State
   const [agoraStatus, setAgoraStatus] = useState<string>('Connecting to Agora...');
   const [hasRemoteUser, setHasRemoteUser] = useState<boolean>(false);
@@ -424,11 +433,11 @@ export const ActiveCallScreen: React.FC<ActiveCallScreenProps> = ({
 
   // Minutes billed and real-time deductions
   const billedMinutes = Math.max(1, Math.ceil(secondsElapsed / 60));
-  const callerCoinsDeducted = Math.min(totalCallerCoins, billedMinutes * callerRateInCoins);
+  const callerCoinsDeducted = Math.min(totalCallerCoins, billedMinutes * callerRateInCoins) + extraCoinsDeducted;
   const callerCoinsRemaining = Math.max(0, totalCallerCoins - callerCoinsDeducted);
 
   // Host Real-Time INR Earnings (Host NEVER sees coins or points)
-  const hostEarnedINR = billedMinutes * hostRatePerMinINR;
+  const hostEarnedINR = Number(((billedMinutes * hostRatePerMinINR) + giftEarnedINR).toFixed(2));
 
   // Real-time Timer & Auto-Termination when Caller Points deplete
   useEffect(() => {
@@ -451,7 +460,7 @@ export const ActiveCallScreen: React.FC<ActiveCallScreenProps> = ({
     return () => clearInterval(timer);
   }, [isHost, maxCallSeconds, onBalanceDepleted]);
 
-  // Independent 600ms Real-Time Disconnect Poller (Ensures instant auto-disconnect when partner hangs up)
+  // Independent 600ms Real-Time Status & Gift Poller
   useEffect(() => {
     let isMounted = true;
     const baseUrl = getApiBaseUrl();
@@ -467,6 +476,34 @@ export const ActiveCallScreen: React.FC<ActiveCallScreenProps> = ({
               if (isMounted) handleEnd();
             }, 300);
           }
+
+          // In-call gift request sync
+          if (data.pendingGiftRequest && isMounted) {
+            if (!isHost) {
+              setIncomingGiftRequest(data.pendingGiftRequest);
+            }
+          } else if (!data.pendingGiftRequest && isMounted) {
+            setIncomingGiftRequest(null);
+          }
+
+          // In-call gift celebration sync
+          if (data.lastGiftSent && isMounted) {
+            if (data.lastGiftSent.id !== lastGiftCelebratedId.current) {
+              lastGiftCelebratedId.current = data.lastGiftSent.id;
+              setGiftCelebration(data.lastGiftSent);
+              if (isHost && data.lastGiftSent.hostShareINR) {
+                setGiftEarnedINR(prev => Number((prev + data.lastGiftSent.hostShareINR).toFixed(2)));
+              }
+              setTimeout(() => {
+                if (isMounted) setGiftCelebration(null);
+              }, 4000);
+            }
+          }
+
+          // Host: sync caller remaining seconds
+          if (isHost && typeof data.callerRemainingSeconds === 'number' && isMounted) {
+            setHostCallerSecondsRemaining(data.callerRemainingSeconds);
+          }
         }
       } catch (e) {}
     };
@@ -476,7 +513,119 @@ export const ActiveCallScreen: React.FC<ActiveCallScreenProps> = ({
       isMounted = false;
       clearInterval(statusTimer);
     };
-  }, [channelName]);
+  }, [channelName, isHost]);
+
+  // Caller: Sync remaining seconds with backend so Host knows caller's time left
+  useEffect(() => {
+    if (isHost) return;
+    const baseUrl = getApiBaseUrl();
+    const syncTime = async () => {
+      try {
+        await fetch(`${baseUrl}/api/calls/sync-remaining-time`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            channel: channelName,
+            callerRemainingSeconds: secondsLeft,
+          }),
+        });
+      } catch (e) {}
+    };
+    syncTime();
+    const syncTimer = setInterval(syncTime, 1500);
+    return () => clearInterval(syncTimer);
+  }, [isHost, channelName, secondsLeft]);
+
+  // Handle Host Requesting Gift or Caller Voluntarily Sending Gift
+  const handleSelectGift = async (g: any) => {
+    setShowGiftModal(false);
+    const baseUrl = getApiBaseUrl();
+
+    if (isHost) {
+      // Host requests gift from caller
+      try {
+        await fetch(`${baseUrl}/api/calls/gift-request`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            channel: channelName,
+            hostUsername: listener?.username || 'host',
+            hostName: listener?.name || 'Verified Host',
+            giftName: g.name,
+            giftCostCoins: g.coins,
+            giftIcon: g.icon,
+          }),
+        });
+        setHostGiftRequestSentToast(`Requested a ${g.name} (${g.coins} Coins) from caller`);
+        setTimeout(() => setHostGiftRequestSentToast(null), 3500);
+      } catch (e) {}
+    } else {
+      // Caller voluntarily sends gift
+      if (callerCoinsRemaining < g.coins) {
+        Alert.alert('Insufficient Balance', `You need ${g.coins} coins to send a ${g.name}. Please recharge your coins.`);
+        return;
+      }
+      try {
+        const res = await fetch(`${baseUrl}/api/calls/gift-send`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            channel: channelName,
+            callerId: 'u_caller',
+            callerName: partnerDisplayName || 'Caller',
+            hostUsername: listener?.username || 'host',
+            giftName: g.name,
+            giftCostCoins: g.coins,
+            giftIcon: g.icon,
+          }),
+        });
+        if (res.ok) {
+          setExtraCoinsDeducted(prev => prev + g.coins);
+        }
+      } catch (e) {}
+    }
+  };
+
+  // Caller accepts host's gift request
+  const handleCallerAcceptGift = async (request: any) => {
+    if (callerCoinsRemaining < request.giftCostCoins) {
+      Alert.alert('Insufficient Coins', `You need ${request.giftCostCoins} coins to send this gift. Please top up your coins.`);
+      return;
+    }
+    setIncomingGiftRequest(null);
+    try {
+      const baseUrl = getApiBaseUrl();
+      const res = await fetch(`${baseUrl}/api/calls/gift-send`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          channel: channelName,
+          callerId: 'u_caller',
+          callerName: partnerDisplayName || 'Caller',
+          hostUsername: listener?.username || 'host',
+          giftName: request.giftName,
+          giftCostCoins: request.giftCostCoins,
+          giftIcon: request.giftIcon,
+        }),
+      });
+      if (res.ok) {
+        setExtraCoinsDeducted(prev => prev + request.giftCostCoins);
+      }
+    } catch (e) {}
+  };
+
+  // Caller declines host's gift request
+  const handleCallerDeclineGift = async () => {
+    setIncomingGiftRequest(null);
+    try {
+      const baseUrl = getApiBaseUrl();
+      await fetch(`${baseUrl}/api/calls/gift-decline`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ channel: channelName }),
+      });
+    } catch (e) {}
+  };
 
   // AI SafeTalk Real-Time Speech Monitor (Detects numbers / social handles during call)
   useEffect(() => {
@@ -752,6 +901,16 @@ export const ActiveCallScreen: React.FC<ActiveCallScreenProps> = ({
                 <Text style={styles.statsDetailDot}>•</Text>
                 <Text style={styles.statsDetailTextHost}>Duration: {formatTime(secondsElapsed)}</Text>
               </View>
+
+              {/* Host Awareness: Caller Remaining Time Sync */}
+              <View style={[styles.hostCallerRemainingRow, hostCallerSecondsRemaining > 0 && hostCallerSecondsRemaining <= 60 && styles.hostCallerRemainingRowLow]}>
+                <Clock size={13} color={hostCallerSecondsRemaining > 0 && hostCallerSecondsRemaining <= 60 ? "#EF4444" : "#10B981"} />
+                <Text style={[styles.hostCallerRemainingText, hostCallerSecondsRemaining > 0 && hostCallerSecondsRemaining <= 60 && styles.hostCallerRemainingTextLow]}>
+                  {hostCallerSecondsRemaining > 0
+                    ? `Caller Time Left: ${formatTime(hostCallerSecondsRemaining)}`
+                    : 'Caller Time: Active'}
+                </Text>
+              </View>
             </View>
           ) : (
             <View style={[styles.liveStatsCardCaller, secondsLeft <= 60 && styles.liveStatsCardWarning]}>
@@ -926,16 +1085,71 @@ export const ActiveCallScreen: React.FC<ActiveCallScreenProps> = ({
           <PhoneOff size={28} color={THEME.colors.white} />
         </TouchableOpacity>
 
-        {/* Send Gift Button */}
+        {/* Send / Request Gift Button */}
         <TouchableOpacity
           style={styles.controlBtn}
           onPress={() => setShowGiftModal(true)}
           activeOpacity={0.8}
         >
           <Gift size={22} color={THEME.colors.white} />
-          <Text style={styles.controlLabel}>Gift</Text>
+          <Text style={styles.controlLabel}>{isHost ? 'Request Gift' : 'Gift'}</Text>
         </TouchableOpacity>
       </View>
+
+      {/* Host Sent Gift Request Feedback Toast */}
+      {hostGiftRequestSentToast && (
+        <View style={styles.hostToastBanner}>
+          <Text style={styles.hostToastText}>✨ {hostGiftRequestSentToast}</Text>
+        </View>
+      )}
+
+      {/* Floating Celebration Animation when Gift is Sent */}
+      {giftCelebration && (
+        <View style={styles.celebrationOverlay} pointerEvents="none">
+          <Text style={styles.celebrationEmoji}>
+            {giftCelebration.giftIcon} {giftCelebration.giftIcon} {giftCelebration.giftIcon}
+          </Text>
+          <Text style={styles.celebrationTitle}>
+            {isHost ? `🎉 ${giftCelebration.senderName} sent a ${giftCelebration.giftName}!` : `🎉 Sent a ${giftCelebration.giftName} to ${partnerDisplayName}!`}
+          </Text>
+          {isHost && (
+            <Text style={styles.celebrationEarnings}>+₹{giftCelebration.hostShareINR?.toFixed(2)} added to earnings</Text>
+          )}
+        </View>
+      )}
+
+      {/* Caller: Host Requested a Gift Live Pop-Up Sheet */}
+      {incomingGiftRequest && !isHost && (
+        <View style={styles.giftRequestBannerContainer}>
+          <View style={styles.giftRequestCard}>
+            <View style={styles.giftRequestIconCircle}>
+              <Text style={{ fontSize: 26 }}>{incomingGiftRequest.giftIcon || '🎁'}</Text>
+            </View>
+            <View style={{ flex: 1, marginLeft: 10, marginRight: 8 }}>
+              <Text style={styles.giftRequestTitle}>
+                {incomingGiftRequest.hostName} requested a {incomingGiftRequest.giftName}!
+              </Text>
+              <Text style={styles.giftRequestCost}>
+                Cost: {incomingGiftRequest.giftCostCoins} Coins (₹{(incomingGiftRequest.giftCostCoins * 0.1).toFixed(2)}) • Balance: {callerCoinsRemaining} Coins
+              </Text>
+            </View>
+            <View style={styles.giftRequestActions}>
+              <TouchableOpacity
+                style={styles.sendGiftBtn}
+                onPress={() => handleCallerAcceptGift(incomingGiftRequest)}
+              >
+                <Text style={styles.sendGiftBtnText}>Send {incomingGiftRequest.giftName}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.declineGiftBtn}
+                onPress={handleCallerDeclineGift}
+              >
+                <Text style={styles.declineGiftBtnText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      )}
 
       {/* Gift Modal */}
       <Modal
@@ -946,27 +1160,28 @@ export const ActiveCallScreen: React.FC<ActiveCallScreenProps> = ({
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalSheet}>
-            <Text style={styles.giftTitle}>Send an In-Call Gift</Text>
-            <Text style={styles.giftSub}>Show appreciation to {listener.name}</Text>
+            <Text style={styles.giftTitle}>{isHost ? 'Request an In-Call Gift' : 'Send an In-Call Gift'}</Text>
+            <Text style={styles.giftSub}>
+              {isHost ? 'Select a gift to send an instant request to caller' : `Show appreciation to ${partnerDisplayName}`}
+            </Text>
 
             <View style={styles.giftGrid}>
               {[
-                { name: 'Rose', cost: 10 },
-                { name: 'Coffee', cost: 25 },
-                { name: 'Heart', cost: 50 },
-                { name: 'Crown', cost: 100 },
+                { name: 'Rose', icon: '🌹', coins: 20, hostINR: 1.0 },
+                { name: 'Coffee', icon: '☕', coins: 50, hostINR: 2.5 },
+                { name: 'Heart', icon: '💖', coins: 100, hostINR: 5.0 },
+                { name: 'Crown', icon: '👑', coins: 250, hostINR: 12.5 },
               ].map((g, idx) => (
                 <TouchableOpacity
                   key={idx}
                   style={styles.giftItem}
-                  onPress={() => {
-                    setRemainingBalance(b => Math.max(0, b - g.cost));
-                    setShowGiftModal(false);
-                  }}
+                  onPress={() => handleSelectGift(g)}
+                  activeOpacity={0.8}
                 >
-                  <Gift size={24} color={THEME.colors.primary} />
+                  <Text style={{ fontSize: 28, marginBottom: 4 }}>{g.icon}</Text>
                   <Text style={styles.giftName}>{g.name}</Text>
-                  <Text style={styles.giftCost}>₹{g.cost}</Text>
+                  <Text style={styles.giftCost}>{g.coins} Coins</Text>
+                  <Text style={styles.giftHostEarn}>{isHost ? `Earn ₹${g.hostINR.toFixed(2)}` : `₹${(g.coins * 0.1).toFixed(2)}`}</Text>
                 </TouchableOpacity>
               ))}
             </View>
@@ -1886,5 +2101,157 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 14,
     fontWeight: '800',
+  },
+  hostCallerRemainingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    marginTop: 8,
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(16, 185, 129, 0.3)',
+  },
+  hostCallerRemainingRowLow: {
+    backgroundColor: 'rgba(239, 68, 68, 0.15)',
+    borderColor: 'rgba(239, 68, 68, 0.4)',
+  },
+  hostCallerRemainingText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#10B981',
+  },
+  hostCallerRemainingTextLow: {
+    color: '#EF4444',
+  },
+  hostToastBanner: {
+    position: 'absolute',
+    top: 50,
+    alignSelf: 'center',
+    backgroundColor: '#1E293B',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: THEME.colors.primary,
+    zIndex: 999,
+  },
+  hostToastText: {
+    color: '#F8FAFC',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  celebrationOverlay: {
+    position: 'absolute',
+    top: '30%',
+    alignSelf: 'center',
+    backgroundColor: 'rgba(15, 23, 42, 0.92)',
+    paddingHorizontal: 24,
+    paddingVertical: 20,
+    borderRadius: 20,
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#F59E0B',
+    zIndex: 9999,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.5,
+    shadowRadius: 20,
+  },
+  celebrationEmoji: {
+    fontSize: 40,
+    marginBottom: 8,
+  },
+  celebrationTitle: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '800',
+    textAlign: 'center',
+  },
+  celebrationEarnings: {
+    color: '#10B981',
+    fontSize: 13,
+    fontWeight: '700',
+    marginTop: 4,
+  },
+  giftRequestBannerContainer: {
+    position: 'absolute',
+    bottom: 100,
+    left: 16,
+    right: 16,
+    zIndex: 999,
+    alignItems: 'center',
+  },
+  giftRequestCard: {
+    width: '100%',
+    maxWidth: 420,
+    backgroundColor: '#0F172A',
+    borderRadius: 16,
+    padding: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#EC4899',
+    shadowColor: '#EC4899',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.35,
+    shadowRadius: 12,
+    elevation: 10,
+  },
+  giftRequestIconCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(236, 72, 153, 0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  giftRequestTitle: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  giftRequestCost: {
+    color: '#94A3B8',
+    fontSize: 11,
+    marginTop: 2,
+  },
+  giftRequestActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  sendGiftBtn: {
+    backgroundColor: '#EC4899',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+  },
+  sendGiftBtnText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  declineGiftBtn: {
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  declineGiftBtnText: {
+    color: '#94A3B8',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  giftHostEarn: {
+    fontSize: 10,
+    color: '#10B981',
+    fontWeight: '700',
+    marginTop: 2,
   },
 });

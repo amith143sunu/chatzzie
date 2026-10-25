@@ -38,20 +38,6 @@
       "static/chunks/984-41b911575e023978.js",
       "static/chunks/app/admin/layout-8ffa4f40f0b9cf70.js"
     ],
-    "/admin/payouts/page": [
-      "static/chunks/webpack-eb31106e53682d38.js",
-      "static/chunks/1dd3208c-2ecbf40b45ed4fdf.js",
-      "static/chunks/997-be79d206a0e4e7fc.js",
-      "static/chunks/main-app-16bb16fe2cc4dd36.js",
-      "static/chunks/app/admin/payouts/page-8754487888cef659.js"
-    ],
-    "/admin/users/page": [
-      "static/chunks/webpack-eb31106e53682d38.js",
-      "static/chunks/1dd3208c-2ecbf40b45ed4fdf.js",
-      "static/chunks/997-be79d206a0e4e7fc.js",
-      "static/chunks/main-app-16bb16fe2cc4dd36.js",
-      "static/chunks/app/admin/users/page-d77480fb8a910228.js"
-    ],
     "/admin/listeners/page": [
       "static/chunks/webpack-eb31106e53682d38.js",
       "static/chunks/1dd3208c-2ecbf40b45ed4fdf.js",
@@ -59,12 +45,12 @@
       "static/chunks/main-app-16bb16fe2cc4dd36.js",
       "static/chunks/app/admin/listeners/page-3ceb7da247c11e86.js"
     ],
-    "/admin/push-center/page": [
+    "/admin/live-calls/page": [
       "static/chunks/webpack-eb31106e53682d38.js",
       "static/chunks/1dd3208c-2ecbf40b45ed4fdf.js",
       "static/chunks/997-be79d206a0e4e7fc.js",
       "static/chunks/main-app-16bb16fe2cc4dd36.js",
-      "static/chunks/app/admin/push-center/page-12562b8ca4b7900e.js"
+      "static/chunks/app/admin/live-calls/page-fe6f8d9cc04b199d.js"
     ],
     "/admin/pricing/page": [
       "static/chunks/webpack-eb31106e53682d38.js",
@@ -73,6 +59,13 @@
       "static/chunks/main-app-16bb16fe2cc4dd36.js",
       "static/chunks/app/admin/pricing/page-61662966ae4af342.js"
     ],
+    "/admin/push-center/page": [
+      "static/chunks/webpack-eb31106e53682d38.js",
+      "static/chunks/1dd3208c-2ecbf40b45ed4fdf.js",
+      "static/chunks/997-be79d206a0e4e7fc.js",
+      "static/chunks/main-app-16bb16fe2cc4dd36.js",
+      "static/chunks/app/admin/push-center/page-12562b8ca4b7900e.js"
+    ],
     "/admin/reports/page": [
       "static/chunks/webpack-eb31106e53682d38.js",
       "static/chunks/1dd3208c-2ecbf40b45ed4fdf.js",
@@ -80,12 +73,19 @@
       "static/chunks/main-app-16bb16fe2cc4dd36.js",
       "static/chunks/app/admin/reports/page-a022c926a768df35.js"
     ],
-    "/admin/live-calls/page": [
+    "/admin/users/page": [
       "static/chunks/webpack-eb31106e53682d38.js",
       "static/chunks/1dd3208c-2ecbf40b45ed4fdf.js",
       "static/chunks/997-be79d206a0e4e7fc.js",
       "static/chunks/main-app-16bb16fe2cc4dd36.js",
-      "static/chunks/app/admin/live-calls/page-fe6f8d9cc04b199d.js"
+      "static/chunks/app/admin/users/page-d77480fb8a910228.js"
+    ],
+    "/admin/payouts/page": [
+      "static/chunks/webpack-eb31106e53682d38.js",
+      "static/chunks/1dd3208c-2ecbf40b45ed4fdf.js",
+      "static/chunks/997-be79d206a0e4e7fc.js",
+      "static/chunks/main-app-16bb16fe2cc4dd36.js",
+      "static/chunks/app/admin/payouts/page-8754487888cef659.js"
     ]
   }
 }

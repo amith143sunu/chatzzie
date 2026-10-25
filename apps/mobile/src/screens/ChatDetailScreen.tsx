@@ -26,6 +26,7 @@ import {
   Image as ImageIcon,
   Plus,
   Coins,
+  Gift,
   X
 } from 'lucide-react-native';
 import { THEME } from '../theme';
@@ -99,6 +100,48 @@ export const ChatDetailScreen: React.FC<ChatDetailScreenProps> = ({
     reason: '',
   });
   const [messages, setMessages] = useState<Message[]>([]);
+  const [showGiftModal, setShowGiftModal] = useState<boolean>(false);
+  const [giftSentCelebration, setGiftSentCelebration] = useState<string | null>(null);
+
+  const handleSendChatGift = async (g: any) => {
+    setShowGiftModal(false);
+    const callerCoins = Math.round(userBalanceINR * 10);
+    if (callerCoins < g.coins) {
+      Alert.alert(
+        'Insufficient Coins',
+        `You need ${g.coins} coins (₹${(g.coins * 0.1).toFixed(2)}) to send a ${g.name}. Please top up your wallet.`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Top Up', onPress: onRechargePress },
+        ]
+      );
+      return;
+    }
+
+    const costINR = Number((g.coins * 0.1).toFixed(2));
+    const allowed = onDeductChatCost(costINR, `Gift ${g.name} to ${partnerName}`);
+    if (!allowed) return;
+
+    try {
+      const baseUrl = getApiBaseUrl();
+      const res = await fetch(`${baseUrl}/api/chat/send-gift`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          senderId: userId || 'caller',
+          senderName: userName || 'Caller',
+          recipientUsername: partnerUsername || partnerName,
+          giftName: g.name,
+          giftCostCoins: g.coins,
+          giftIcon: g.icon,
+        }),
+      });
+      if (res.ok) {
+        setGiftSentCelebration(`Sent ${g.icon} ${g.name} to ${partnerName}!`);
+        setTimeout(() => setGiftSentCelebration(null), 3500);
+      }
+    } catch (e) {}
+  };
 
   // Real-Time Chat Thread Poller
   useEffect(() => {
@@ -112,13 +155,16 @@ export const ChatDetailScreen: React.FC<ChatDetailScreenProps> = ({
         if (res.ok) {
           const data = await res.json();
           if (data.success && Array.isArray(data.messages) && isMounted) {
-            const mapped = data.messages.map((m: any) => ({
-              id: m.id,
-              sender: m.senderRole === 'caller' ? 'user' : 'partner',
-              text: m.text,
-              imageUrl: m.imageUrl,
-              time: m.timeFormatted || 'Just now',
-            }));
+            const mapped = data.messages.map((m: any) => {
+              const isUser = (m.senderRole === 'caller' || m.sender === 'caller' || m.senderId === effectiveCaller || m.senderName === effectiveCaller);
+              return {
+                id: m.id,
+                sender: isUser ? 'user' : 'partner',
+                text: m.text,
+                imageUrl: m.imageUrl,
+                time: m.timeFormatted || m.time || 'Just now',
+              };
+            });
             setMessages(mapped);
           }
         }
@@ -433,6 +479,16 @@ export const ChatDetailScreen: React.FC<ChatDetailScreenProps> = ({
           <ImageIcon size={20} color={THEME.colors.primary} />
         </TouchableOpacity>
 
+        {/* In-Chat Gift Button */}
+        <TouchableOpacity
+          style={styles.giftBtn}
+          onPress={() => setShowGiftModal(true)}
+          activeOpacity={0.8}
+          title="Send Gift"
+        >
+          <Gift size={20} color="#EC4899" />
+        </TouchableOpacity>
+
         <TextInput
           style={styles.inputField}
           placeholder="Type message (₹0.25)..."
@@ -451,6 +507,56 @@ export const ChatDetailScreen: React.FC<ChatDetailScreenProps> = ({
           <Send size={17} color={THEME.colors.white} />
         </TouchableOpacity>
       </View>
+
+      {/* Gift Sent Celebration Toast */}
+      {giftSentCelebration && (
+        <View style={styles.celebrationToast}>
+          <Text style={styles.celebrationToastText}>🎉 {giftSentCelebration}</Text>
+        </View>
+      )}
+
+      {/* In-Chat Gift Bottom Sheet Modal */}
+      <Modal
+        visible={showGiftModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowGiftModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalSheet}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+              <View>
+                <Text style={styles.modalTitle}>Send a Gift</Text>
+                <Text style={styles.modalSubtitle}>Support {partnerName} • Balance: {Math.round(userBalanceINR * 10)} Coins</Text>
+              </View>
+              <TouchableOpacity onPress={() => setShowGiftModal(false)} style={styles.closeModalBtn}>
+                <X size={20} color={THEME.colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.giftGrid}>
+              {[
+                { name: 'Rose', icon: '🌹', coins: 20 },
+                { name: 'Coffee', icon: '☕', coins: 50 },
+                { name: 'Heart', icon: '💖', coins: 100 },
+                { name: 'Crown', icon: '👑', coins: 250 },
+              ].map((g, idx) => (
+                <TouchableOpacity
+                  key={idx}
+                  style={styles.giftCard}
+                  onPress={() => handleSendChatGift(g)}
+                  activeOpacity={0.8}
+                >
+                  <Text style={{ fontSize: 32, marginBottom: 6 }}>{g.icon}</Text>
+                  <Text style={styles.giftCardName}>{g.name}</Text>
+                  <Text style={styles.giftCardCost}>{g.coins} Coins</Text>
+                  <Text style={styles.giftCardINR}>₹{(g.coins * 0.1).toFixed(2)}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       {/* Real-Time Anti-Leak Safety Banner */}
       <View style={styles.chatSafetyBar}>
@@ -939,5 +1045,89 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 14,
     fontWeight: '800',
+  },
+  giftBtn: {
+    padding: 8,
+    marginRight: 4,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  celebrationToast: {
+    position: 'absolute',
+    bottom: 80,
+    alignSelf: 'center',
+    backgroundColor: '#0F172A',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#EC4899',
+    zIndex: 999,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+  },
+  celebrationToastText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalSheet: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 24,
+    paddingBottom: 36,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: THEME.colors.textPrimary,
+  },
+  modalSubtitle: {
+    fontSize: 12,
+    color: THEME.colors.textSecondary,
+    marginTop: 2,
+  },
+  closeModalBtn: {
+    padding: 6,
+  },
+  giftGrid: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 8,
+    marginTop: 16,
+  },
+  giftCard: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 6,
+    borderRadius: 16,
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1.5,
+    borderColor: '#E2E8F0',
+  },
+  giftCardName: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: THEME.colors.textPrimary,
+  },
+  giftCardCost: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#EC4899',
+    marginTop: 2,
+  },
+  giftCardINR: {
+    fontSize: 10,
+    color: '#64748B',
+    marginTop: 2,
   },
 });

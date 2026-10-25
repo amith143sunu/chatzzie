@@ -445,8 +445,16 @@ interface ActiveRingCall {
   status: 'ringing' | 'accepted' | 'declined' | 'ended' | 'cancelled';
 }
 
+interface CallChannelState {
+  status: 'active' | 'ended';
+  timestamp: number;
+  pendingGiftRequest?: any;
+  lastGiftSent?: any;
+  callerRemainingSeconds?: number;
+}
+
 // Active State Trackers
-const activeCallChannels: Record<string, { status: 'active' | 'ended'; timestamp: number }> = {};
+const activeCallChannels: Record<string, CallChannelState> = {};
 const activeRingingCalls: Record<string, ActiveRingCall> = {};
 const activeHostStatus: Record<string, 'online' | 'busy' | 'offline'> = {};
 const notifyQueue: Record<string, Array<{ callerId: string; callerName: string; timestamp: number }>> = {};
@@ -647,12 +655,14 @@ interface ChatMessageItem {
   senderId: string;
   senderName: string;
   senderRole: 'caller' | 'host';
+  sender?: 'caller' | 'host';
   recipientId: string;
   recipientUsername: string;
   text: string;
   imageUrl?: string;
   timestamp: number;
   timeFormatted: string;
+  time?: string;
 }
 
 const chatDatabase: Record<string, ChatMessageItem[]> = {};
@@ -692,6 +702,7 @@ app.post('/api/chat/send', (req, res) => {
     senderId: senderId || 'u_caller',
     senderName: senderName || 'User',
     senderRole: senderRole || 'caller',
+    sender: senderRole || 'caller',
     recipientId: recipientId || 'u_recipient',
     recipientUsername: recipientUsername || 'recipient',
     text: (text || '').trim(),
@@ -707,6 +718,47 @@ app.post('/api/chat/send', (req, res) => {
   io.emit('chat_message_received', { convKey, message: msg });
 
   res.json({ success: true, message: msg });
+});
+
+// Send in-chat gift (deducts coins from caller, credits 50% INR to host)
+app.post('/api/chat/send-gift', (req, res) => {
+  const { senderId, senderName, recipientUsername, giftName, giftCostCoins, giftIcon } = req.body;
+  if (!senderName || !recipientUsername) {
+    return res.status(400).json({ error: 'Sender and recipient required' });
+  }
+  const coins = Number(giftCostCoins) || 20;
+  const hostShareINR = Number((coins * 0.1 * 0.5).toFixed(2));
+  const convKey = getConvKey(senderName || senderId, recipientUsername);
+  const now = new Date();
+  const timeFormatted = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+  const msg: ChatMessageItem = {
+    id: `msg_gift_${Date.now()}`,
+    senderId: senderId || 'u_caller',
+    senderName: senderName || 'Caller',
+    senderRole: 'caller',
+    sender: 'caller',
+    recipientId: recipientUsername,
+    recipientUsername,
+    text: `🎁 Sent a ${giftName || 'Gift'} (${coins} Coins) ${giftIcon || '✨'}`,
+    timestamp: Date.now(),
+    timeFormatted,
+    time: timeFormatted,
+  };
+
+  if (!chatDatabase[convKey]) chatDatabase[convKey] = [];
+  chatDatabase[convKey].push(msg);
+
+  // Credit host earnings
+  const cleanHost = recipientUsername.toLowerCase().replace(/[^a-z0-9]/g, '');
+  const listener = mockListeners.find(l => l.username && l.username.toLowerCase().replace(/[^a-z0-9]/g, '') === cleanHost);
+  if (listener) {
+    listener.totalEarnedINR = Number(((listener.totalEarnedINR || 0) + hostShareINR).toFixed(2));
+    listener.earningsBalanceINR = Number(((listener.earningsBalanceINR || 0) + hostShareINR).toFixed(2));
+  }
+
+  io.emit('chat_message_received', { convKey, message: msg });
+  res.json({ success: true, message: msg, hostShareINR });
 });
 
 // Get chat thread between 2 users
@@ -725,7 +777,13 @@ app.get('/api/chat/thread', (req, res) => {
     );
     if (matchedKey) messages = chatDatabase[matchedKey];
   }
-  res.json({ success: true, messages: messages || [] });
+  const normalizedMsgs = (messages || []).map(m => ({
+    ...m,
+    sender: m.sender || m.senderRole,
+    senderRole: m.senderRole || m.sender,
+    time: m.time || m.timeFormatted,
+  }));
+  res.json({ success: true, messages: normalizedMsgs });
 });
 
 // Get host chat conversations list
@@ -745,14 +803,21 @@ app.get('/api/chat/host-conversations/:username', (req, res) => {
     if (msgs && msgs.length > 0) {
       const lastMsg = msgs[msgs.length - 1];
       const otherPartyName = lastMsg.senderRole === 'host' ? (lastMsg.recipientUsername || 'Caller') : lastMsg.senderName;
+      const normalizedConvsMsgs = msgs.map(m => ({
+        ...m,
+        sender: m.sender || m.senderRole,
+        senderRole: m.senderRole || m.sender,
+        time: m.time || m.timeFormatted,
+      }));
       conversations.push({
         id: k,
         callerName: otherPartyName,
         avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=300&q=80',
         lastMessage: lastMsg.text,
+        lastMsgTimestamp: lastMsg.timestamp || 0,
         time: lastMsg.timeFormatted,
         unread: lastMsg.senderRole === 'caller' ? 1 : 0,
-        messages: msgs,
+        messages: normalizedConvsMsgs,
       });
     }
   });
@@ -791,16 +856,25 @@ app.get('/api/chat/caller-conversations', (req, res) => {
         bio: 'Verified Host',
       };
 
+      const normalizedConvsMsgs = msgs.map(m => ({
+        ...m,
+        sender: m.sender || m.senderRole,
+        senderRole: m.senderRole || m.sender,
+        time: m.time || m.timeFormatted,
+      }));
+
       conversations.push({
         id: k,
         name: matchedHost.name,
         username: matchedHost.username,
         avatarUrl: matchedHost.avatarUrl,
         lastMessage: lastMsg.text || 'Photo message',
+        lastMsgTimestamp: lastMsg.timestamp || 0,
         time: lastMsg.timeFormatted,
         unread: lastMsg.senderRole === 'host' ? 1 : 0,
         online: (activeHostStatus[matchedHost.username] !== 'offline'),
         listener: matchedHost,
+        messages: normalizedConvsMsgs,
       });
     }
   });
@@ -857,7 +931,7 @@ app.post('/api/host/register-or-sync', (req, res) => {
   res.json({ success: true, listener: existing });
 });
 
-// Check if a call session was ended by either party
+// Check if a call session was ended by either party & get in-call sync status (gifts, countdown)
 app.get('/api/calls/status', (req, res) => {
   const channel = req.query.channel as string;
   if (!channel) return res.json({ status: 'active', ended: false });
@@ -865,7 +939,91 @@ app.get('/api/calls/status', (req, res) => {
   if (session && session.status === 'ended') {
     return res.json({ status: 'ended', ended: true });
   }
-  res.json({ status: 'active', ended: false });
+  res.json({
+    status: 'active',
+    ended: false,
+    pendingGiftRequest: session ? session.pendingGiftRequest : null,
+    lastGiftSent: session ? session.lastGiftSent : null,
+    callerRemainingSeconds: session ? session.callerRemainingSeconds : undefined,
+  });
+});
+
+// Host requests in-call gift from caller
+app.post('/api/calls/gift-request', (req, res) => {
+  const { channel, hostUsername, hostName, giftName, giftCostCoins, giftIcon } = req.body;
+  if (!channel) return res.status(400).json({ error: 'Channel required' });
+  if (!activeCallChannels[channel]) {
+    activeCallChannels[channel] = { status: 'active', timestamp: Date.now() };
+  }
+  const request = {
+    id: `gr_${Date.now()}`,
+    giftName: giftName || 'Rose',
+    giftCostCoins: Number(giftCostCoins) || 20,
+    giftIcon: giftIcon || '🌹',
+    hostName: hostName || 'Host',
+    hostUsername: hostUsername || 'host',
+    timestamp: Date.now(),
+  };
+  activeCallChannels[channel].pendingGiftRequest = request;
+  io.emit('call_gift_requested', { channel, request });
+  res.json({ success: true, request });
+});
+
+// Caller sends in-call gift to host (50% direct earnings to host)
+app.post('/api/calls/gift-send', (req, res) => {
+  const { channel, callerId, callerName, hostUsername, giftName, giftCostCoins, giftIcon } = req.body;
+  if (!channel) return res.status(400).json({ error: 'Channel required' });
+  const coins = Number(giftCostCoins) || 20;
+  const hostShareINR = Number((coins * 0.1 * 0.5).toFixed(2)); // 50% split (1 coin = ₹0.10)
+
+  if (!activeCallChannels[channel]) {
+    activeCallChannels[channel] = { status: 'active', timestamp: Date.now() };
+  }
+
+  const giftSent = {
+    id: `gs_${Date.now()}`,
+    giftName: giftName || 'Rose',
+    giftCostCoins: coins,
+    giftIcon: giftIcon || '🌹',
+    senderName: callerName || 'Caller',
+    hostShareINR,
+    timestamp: Date.now(),
+  };
+
+  activeCallChannels[channel].pendingGiftRequest = null;
+  activeCallChannels[channel].lastGiftSent = giftSent;
+
+  // Add to host earnings
+  if (hostUsername) {
+    const cleanHost = hostUsername.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const listener = mockListeners.find(l => l.username && l.username.toLowerCase().replace(/[^a-z0-9]/g, '') === cleanHost);
+    if (listener) {
+      listener.totalEarnedINR = Number(((listener.totalEarnedINR || 0) + hostShareINR).toFixed(2));
+      listener.earningsBalanceINR = Number(((listener.earningsBalanceINR || 0) + hostShareINR).toFixed(2));
+    }
+  }
+
+  io.emit('call_gift_received', { channel, gift: giftSent });
+  res.json({ success: true, gift: giftSent, hostShareINR });
+});
+
+// Caller declines gift request
+app.post('/api/calls/gift-decline', (req, res) => {
+  const { channel } = req.body;
+  if (channel && activeCallChannels[channel]) {
+    activeCallChannels[channel].pendingGiftRequest = null;
+    io.emit('call_gift_declined', { channel });
+  }
+  res.json({ success: true });
+});
+
+// Sync caller remaining seconds for host screen visibility
+app.post('/api/calls/sync-remaining-time', (req, res) => {
+  const { channel, callerRemainingSeconds } = req.body;
+  if (channel && activeCallChannels[channel]) {
+    activeCallChannels[channel].callerRemainingSeconds = Math.max(0, Number(callerRemainingSeconds) || 0);
+  }
+  res.json({ success: true });
 });
 
 // Start call session

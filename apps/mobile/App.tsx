@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { StyleSheet, View, Text, TouchableOpacity, SafeAreaView, StatusBar, Alert, useWindowDimensions, Platform } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { StyleSheet, View, Text, TouchableOpacity, SafeAreaView, StatusBar, Alert, useWindowDimensions, Platform, Image } from 'react-native';
 import { BottomNavBar, NavTab } from './src/components/BottomNavBar';
 import { DesktopHeader } from './src/components/DesktopHeader';
 import { HomeScreen } from './src/screens/HomeScreen';
@@ -340,28 +340,112 @@ export default function App() {
     channel: string;
   } | null>(null);
 
-  // Poll for queued host becoming free
+  // Global Incoming Message Notification State & Sound
+  const [incomingMsgToast, setIncomingMsgToast] = useState<{
+    visible: boolean;
+    senderName: string;
+    senderUsername: string;
+    senderAvatar: string;
+    text: string;
+    listener: any;
+  } | null>(null);
+
+  const lastSeenCallerMsgTimeRef = useRef<number>(Date.now());
+
+  const playIncomingMsgChime = () => {
+    try {
+      if (typeof window !== 'undefined' && ((window as any).AudioContext || (window as any).webkitAudioContext)) {
+        const AudioCtx = (window as any).AudioContext || (window as any).webkitAudioContext;
+        const ctx = new AudioCtx();
+        if (ctx.state === 'suspended') {
+          ctx.resume();
+        }
+        const now = ctx.currentTime;
+        // Two-tone chime: D5 (587.33Hz) then A5 (880Hz)
+        const osc1 = ctx.createOscillator();
+        const gain1 = ctx.createGain();
+        osc1.type = 'sine';
+        osc1.frequency.setValueAtTime(587.33, now);
+        gain1.gain.setValueAtTime(0.16, now);
+        gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.22);
+        osc1.connect(gain1);
+        gain1.connect(ctx.destination);
+        osc1.start(now);
+        osc1.stop(now + 0.22);
+
+        const osc2 = ctx.createOscillator();
+        const gain2 = ctx.createGain();
+        osc2.type = 'sine';
+        osc2.frequency.setValueAtTime(880, now + 0.1);
+        gain2.gain.setValueAtTime(0.20, now + 0.1);
+        gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.42);
+        osc2.connect(gain2);
+        gain2.connect(ctx.destination);
+        osc2.start(now + 0.1);
+        osc2.stop(now + 0.42);
+      }
+    } catch (e) {}
+  };
+
+  // Poll for incoming messages to caller from any host
   useEffect(() => {
     if (!isAuthenticated || userRole === 'listener') return;
-    const checkFree = async () => {
+    const effectiveCaller = userName || userUsername || userId || 'Caller';
+
+    const checkIncomingMsgs = async () => {
       try {
         const baseUrl = getApiBaseUrl();
-        const res = await fetch(`${baseUrl}/api/calls/check-free?callerId=${encodeURIComponent(userId)}`);
+        const res = await fetch(`${baseUrl}/api/chat/caller-conversations?caller=${encodeURIComponent(effectiveCaller)}`);
         if (res.ok) {
           const data = await res.json();
-          if (data.hasFreeAlert && data.alert) {
-            setHostFreeAlert({
-              visible: true,
-              hostName: data.alert.hostName,
-              hostUsername: data.alert.hostUsername,
+          if (data.success && Array.isArray(data.conversations)) {
+            let newestHostMsg: any = null;
+            let matchingHost: any = null;
+
+            data.conversations.forEach((conv: any) => {
+              if (Array.isArray(conv.messages)) {
+                conv.messages.forEach((m: any) => {
+                  if (m.senderRole === 'host' && m.timestamp && m.timestamp > (newestHostMsg?.timestamp || 0)) {
+                    newestHostMsg = m;
+                    matchingHost = conv.listener || {
+                      id: `host_${conv.username}`,
+                      name: conv.name,
+                      username: conv.username,
+                      avatarUrl: conv.avatarUrl,
+                      callRatePerMinINR: 9,
+                      bio: 'Verified Host',
+                      languages: ['Hindi', 'English'],
+                      isVideoEnabled: true,
+                    };
+                  }
+                });
+              }
             });
+
+            if (newestHostMsg && newestHostMsg.timestamp > lastSeenCallerMsgTimeRef.current) {
+              lastSeenCallerMsgTimeRef.current = newestHostMsg.timestamp;
+              // Don't toast if caller is already chatting with this specific host
+              if (currentScreen !== 'chat_detail' || selectedListener?.username !== matchingHost?.username) {
+                playIncomingMsgChime();
+                setIncomingMsgToast({
+                  visible: true,
+                  senderName: matchingHost?.name || 'Verified Host',
+                  senderUsername: matchingHost?.username || 'host',
+                  senderAvatar: matchingHost?.avatarUrl || 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=300&q=80',
+                  text: newestHostMsg.text || 'Sent a photo message',
+                  listener: matchingHost,
+                });
+                setTimeout(() => setIncomingMsgToast(null), 6000);
+              }
+            }
           }
         }
       } catch (e) {}
     };
-    const timer = setInterval(checkFree, 2500);
-    return () => clearInterval(timer);
-  }, [isAuthenticated, userId, userRole]);
+
+    const msgTimer = setInterval(checkIncomingMsgs, 2000);
+    return () => clearInterval(msgTimer);
+  }, [isAuthenticated, userRole, userName, userUsername, userId, currentScreen, selectedListener]);
 
   // Handle URL /admin parameter or auto-call parameter for instant routing
   useEffect(() => {
@@ -688,7 +772,7 @@ export default function App() {
           />
         )}
 
-      <View style={styles.container}>
+      <View style={[styles.container, isDesktop && styles.desktopContainer]}>
         {/* Main Tabs */}
         {currentScreen === 'tab_home' && (
           <HomeScreen
@@ -1037,6 +1121,53 @@ export default function App() {
             }}
           />
         )}
+        {/* Global Floating Incoming Message Toast */}
+        {incomingMsgToast?.visible && (
+          <View style={styles.floatingToastContainer}>
+            <TouchableOpacity
+              style={styles.floatingToastCard}
+              activeOpacity={0.9}
+              onPress={() => {
+                if (incomingMsgToast.listener) {
+                  setSelectedListener(incomingMsgToast.listener);
+                }
+                setCurrentScreen('chat_detail');
+                setIncomingMsgToast(null);
+              }}
+            >
+              <Image source={{ uri: incomingMsgToast.senderAvatar }} style={styles.floatingToastAvatar} />
+              <View style={styles.floatingToastBody}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <Text style={styles.floatingToastSender} numberOfLines={1}>{incomingMsgToast.senderName}</Text>
+                  <View style={styles.toastBadge}>
+                    <Text style={styles.toastBadgeText}>Host</Text>
+                  </View>
+                </View>
+                <Text style={styles.floatingToastMsg} numberOfLines={1}>{incomingMsgToast.text}</Text>
+              </View>
+              <View style={styles.floatingToastActions}>
+                <TouchableOpacity
+                  style={styles.toastReplyBtn}
+                  onPress={() => {
+                    if (incomingMsgToast.listener) {
+                      setSelectedListener(incomingMsgToast.listener);
+                    }
+                    setCurrentScreen('chat_detail');
+                    setIncomingMsgToast(null);
+                  }}
+                >
+                  <Text style={styles.toastReplyText}>Reply</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.toastCloseBtn}
+                  onPress={() => setIncomingMsgToast(null)}
+                >
+                  <Text style={styles.toastCloseText}>✕</Text>
+                </TouchableOpacity>
+              </View>
+            </TouchableOpacity>
+          </View>
+        )}
       </View>
     </SafeAreaView>
     </ErrorBoundary>
@@ -1051,5 +1182,92 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: THEME.colors.background,
+  },
+  desktopContainer: {
+    width: '100%',
+    maxWidth: 1200,
+    alignSelf: 'center',
+    backgroundColor: THEME.colors.background,
+  },
+  floatingToastContainer: {
+    position: 'absolute',
+    top: Platform.OS === 'web' ? 16 : 48,
+    left: 16,
+    right: 16,
+    zIndex: 99999,
+    alignItems: 'center',
+  },
+  floatingToastCard: {
+    width: '100%',
+    maxWidth: 480,
+    backgroundColor: '#0F172A',
+    borderRadius: 16,
+    padding: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.35,
+    shadowRadius: 16,
+    elevation: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.15)',
+  },
+  floatingToastAvatar: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    borderWidth: 2,
+    borderColor: THEME.colors.primary,
+  },
+  floatingToastBody: {
+    flex: 1,
+    marginLeft: 10,
+    marginRight: 8,
+  },
+  floatingToastSender: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#F8FAFC',
+  },
+  toastBadge: {
+    backgroundColor: 'rgba(99, 102, 241, 0.25)',
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: 6,
+  },
+  toastBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#818CF8',
+  },
+  floatingToastMsg: {
+    fontSize: 12,
+    color: '#94A3B8',
+    marginTop: 2,
+  },
+  floatingToastActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  toastReplyBtn: {
+    backgroundColor: THEME.colors.primary,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  toastReplyText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  toastCloseBtn: {
+    padding: 6,
+  },
+  toastCloseText: {
+    fontSize: 14,
+    color: '#94A3B8',
+    fontWeight: '600',
   },
 });
