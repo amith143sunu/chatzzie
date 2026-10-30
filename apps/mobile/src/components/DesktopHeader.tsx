@@ -137,18 +137,8 @@ export const DesktopHeader: React.FC<DesktopHeaderProps> = ({
 
         {/* Right: Actions, Balance & Profile */}
         <View style={styles.rightActions}>
-          {/* Become a Host CTA */}
-          <TouchableOpacity
-            style={styles.hostCtaBtn}
-            onPress={onBecomeListenerPress}
-            activeOpacity={0.85}
-          >
-            <Headphones size={14} color="#2563EB" />
-            <Text style={styles.hostCtaText}>Become a Host</Text>
-          </TouchableOpacity>
-
-          {/* Host Earnings CTA */}
-          {onEarningsPress && (
+          {/* Host Earnings CTA (Only for host session) */}
+          {userRole === 'listener' && onEarningsPress && (
             <TouchableOpacity
               style={styles.earningsCtaBtn}
               onPress={onEarningsPress}

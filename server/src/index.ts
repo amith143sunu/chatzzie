@@ -533,6 +533,51 @@ app.post('/api/host/toggle-status', (req, res) => {
   res.json({ success: true, status: activeHostStatus[hostUsername] });
 });
 
+// Host login verification (Checks approved hosts vs pending applications)
+app.post('/api/host/login', (req, res) => {
+  const { identifier } = req.body;
+  if (!identifier) return res.status(400).json({ error: 'Username or phone required' });
+
+  const clean = identifier.toLowerCase().trim().replace(/[^a-z0-9]/g, '');
+
+  // 1. Check if already an approved host in mockListeners
+  const approvedHost = mockListeners.find(l => 
+    (l.username && l.username.toLowerCase().replace(/[^a-z0-9]/g, '') === clean) ||
+    ((l as any).phone && (l as any).phone.replace(/[^0-9]/g, '').endsWith(clean)) ||
+    (l.name && l.name.toLowerCase().replace(/[^a-z0-9]/g, '') === clean)
+  );
+
+  if (approvedHost) {
+    return res.json({
+      success: true,
+      status: 'approved',
+      host: approvedHost,
+    });
+  }
+
+  // 2. Check if host has an application pending in pendingKycApplications
+  const pendingApp = pendingKycApplications.find(a => 
+    (a.username && a.username.toLowerCase().replace(/[^a-z0-9]/g, '') === clean) ||
+    (a.phone && a.phone.replace(/[^0-9]/g, '').endsWith(clean)) ||
+    (a.name && a.name.toLowerCase().replace(/[^a-z0-9]/g, '') === clean)
+  );
+
+  if (pendingApp) {
+    return res.json({
+      success: true,
+      status: 'pending',
+      application: pendingApp,
+    });
+  }
+
+  // 3. Not found
+  res.json({
+    success: false,
+    status: 'not_found',
+    error: 'No host partner profile or pending registration found. Please apply below to become a verified host.',
+  });
+});
+
 // Host Workstation full operational data (Calls, Chats, Earnings, Missed Calls)
 app.get('/api/host/workstation-data/:username', (req, res) => {
   const { username } = req.params;

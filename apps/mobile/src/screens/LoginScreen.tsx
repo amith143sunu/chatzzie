@@ -37,9 +37,10 @@ interface LoginScreenProps {
     walletBalanceINR: number;
     avatarUrl: string;
   }) => void;
+  onOpenHostPortal?: () => void;
 }
 
-export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
+export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onOpenHostPortal }) => {
   const [role, setRole] = useState<'talker' | 'listener'>('talker');
   const [phone, setPhone] = useState('');
   const [name, setName] = useState('');
@@ -174,64 +175,28 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
             </Text>
           </View>
 
-          {/* Quick Demo Pre-fill Pills */}
-          <View style={styles.quickFillRow}>
-            <Text style={styles.quickFillLabel}>Quick Test Login:</Text>
-            <TouchableOpacity
-              style={[styles.quickPill, role === 'talker' && styles.quickPillActive]}
-              onPress={() => handleQuickFill('talker')}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.quickPillText}>Phone Caller (₹60 Bonus)</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.quickPill, role === 'listener' && styles.quickPillActiveListener]}
-              onPress={() => handleQuickFill('listener')}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.quickPillText}>Laptop Host (Earn)</Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Role Tabs */}
-          <View style={styles.roleTabsContainer}>
-            <TouchableOpacity
-              style={[styles.roleTab, role === 'talker' && styles.roleTabActive]}
-              onPress={() => {
-                setRole('talker');
-                setErrorMsg('');
-              }}
-              activeOpacity={0.85}
-            >
-              <Phone size={16} color={role === 'talker' ? '#2563EB' : '#64748B'} />
-              <Text style={[styles.roleTabText, role === 'talker' && styles.roleTabTextActive]}>
-                Caller (Talk & Connect)
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.roleTab, role === 'listener' && styles.roleTabActiveListener]}
-              onPress={() => {
-                setRole('listener');
-                setErrorMsg('');
-              }}
-              activeOpacity={0.85}
-            >
-              <Headphones size={16} color={role === 'listener' ? '#059669' : '#64748B'} />
-              <Text style={[styles.roleTabText, role === 'listener' && styles.roleTabTextActiveListener]}>
-                Host (Listen & Earn)
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Role Benefit Highlight Pill */}
-          <View style={[styles.benefitBanner, role === 'listener' ? styles.benefitBannerHost : styles.benefitBannerCaller]}>
-            <Sparkles size={14} color={role === 'listener' ? '#059669' : '#2563EB'} />
-            <Text style={[styles.benefitBannerText, { color: role === 'listener' ? '#065F46' : '#1E40AF' }]}>
-              {role === 'listener'
-                ? 'Earn ₹4.50/min for Voice • ₹16.00/min for Video'
-                : 'Free ₹60.00 Starter Balance credited upon login'}
+          {/* Caller Welcome Bonus Banner */}
+          <View style={styles.benefitBannerCaller}>
+            <Sparkles size={14} color="#2563EB" />
+            <Text style={styles.benefitBannerText}>
+              Free ₹60.00 Starter Balance credited upon registration!
             </Text>
+          </View>
+
+          {/* Quick Demo Pre-fill for Caller */}
+          <View style={styles.quickFillRow}>
+            <Text style={styles.quickFillLabel}>Quick Test:</Text>
+            <TouchableOpacity
+              style={[styles.quickPill, styles.quickPillActive]}
+              onPress={() => {
+                setName('Amit (Caller)');
+                setPhone('9876500002');
+                setErrorMsg('');
+              }}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.quickPillText}>Fill Demo Caller (Amit)</Text>
+            </TouchableOpacity>
           </View>
 
           {/* Form Step 1: Phone & Name Input */}
@@ -359,6 +324,20 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
                 )}
               </TouchableOpacity>
             </View>
+          )}
+
+          {/* Host Partner Portal Switcher Link */}
+          {onOpenHostPortal && (
+            <TouchableOpacity
+              style={styles.hostPartnerPortalLink}
+              onPress={onOpenHostPortal}
+              activeOpacity={0.8}
+            >
+              <Headphones size={15} color="#818CF8" />
+              <Text style={styles.hostPartnerPortalText}>
+                Are you a female host looking to earn? <Text style={{ color: '#A5B4FC', fontWeight: '800' }}>Open Host Portal (/host)</Text>
+              </Text>
+            </TouchableOpacity>
           )}
 
           {/* Privacy & Trust Footer */}
@@ -678,5 +657,23 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#94A3B8',
     textDecorationLine: 'underline',
+  },
+  hostPartnerPortalLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    marginTop: 18,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    backgroundColor: '#1E293B',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(99, 102, 241, 0.3)',
+  },
+  hostPartnerPortalText: {
+    fontSize: 12,
+    color: '#CBD5E1',
+    fontWeight: '600',
   },
 });

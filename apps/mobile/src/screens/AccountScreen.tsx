@@ -46,6 +46,7 @@ interface AccountScreenProps {
   userName?: string;
   userRole?: 'talker' | 'listener';
   onLogout?: () => void;
+  onOpenHostPortal?: () => void;
 }
 
 export const AccountScreen: React.FC<AccountScreenProps> = ({
@@ -62,6 +63,7 @@ export const AccountScreen: React.FC<AccountScreenProps> = ({
   userName = 'Amit',
   userRole = 'talker',
   onLogout,
+  onOpenHostPortal,
 }) => {
   const [selectedLanguage, setSelectedLanguage] = useState('Hindi & English');
   const [showLanguageModal, setShowLanguageModal] = useState(false);
@@ -126,28 +128,8 @@ export const AccountScreen: React.FC<AccountScreenProps> = ({
           )}
         </View>
 
-        {/* Listener Mode Banner */}
-        <TouchableOpacity
-          style={styles.modeCard}
-          onPress={onBecomeListenerPress}
-          activeOpacity={0.85}
-        >
-          <View style={styles.modeIcon}>
-            <Headphones size={20} color={THEME.colors.white} />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.modeTitle}>
-              {isListenerVerified ? 'Switch to Listener Mode' : 'Become a Verified Listener'}
-            </Text>
-            <Text style={styles.modeSub}>
-              {isListenerVerified ? 'Accept calls and earn per minute' : 'Apply with voice sample and PAN card'}
-            </Text>
-          </View>
-          <ChevronRight size={18} color={THEME.colors.primary} />
-        </TouchableOpacity>
-
-        {/* Host Earnings & Settlements Card */}
-        {onEarningsPress && (
+        {/* Host Earnings Card (Only rendered if host logged in) */}
+        {userRole === 'listener' && onEarningsPress && (
           <TouchableOpacity
             style={styles.earningsCard}
             onPress={onEarningsPress}
@@ -175,6 +157,7 @@ export const AccountScreen: React.FC<AccountScreenProps> = ({
             { label: 'Privacy Policy', icon: Shield, action: onPrivacyPress },
             { label: 'Terms and Conditions', icon: FileText, action: onTermsPress },
             { label: 'Return & Refund Policy', icon: RotateCcw, action: onRefundPress },
+            { label: 'Work as a Host Partner (/host)', icon: Sparkles, color: '#4F46E5', action: onOpenHostPortal || onBecomeListenerPress },
             { label: 'Help & Support', icon: Headphones, action: onHelpPress },
             { label: `Language: ${selectedLanguage}`, icon: Globe, action: () => setShowLanguageModal(true) },
             { label: 'Rate Us on Play Store', icon: Star, action: () => setShowRatingModal(true) },

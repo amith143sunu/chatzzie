@@ -339,25 +339,16 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           </View>
         )}
 
-        {/* Become a Listener Banner */}
-        <TouchableOpacity
-          style={styles.hostBanner}
-          onPress={onBecomeListenerPress}
-          activeOpacity={0.9}
-        >
-          <View style={styles.hostBannerContent}>
-            <View style={styles.hostIconCircle}>
-              <Headphones size={24} color={THEME.colors.white} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.hostBannerTitle}>Become a Verified Host</Text>
-              <Text style={styles.hostBannerSub}>
-                Join the Chatzie Creator Network. Earn up to ₹2,000/day by listening and conversing on your own schedule.
-              </Text>
-            </View>
-            <ArrowRight size={20} color={THEME.colors.white} />
+        {/* Safe, Anonymous Calling Guarantee Card */}
+        <View style={styles.safeCallBanner}>
+          <ShieldCheck size={22} color="#10B981" />
+          <View style={{ flex: 1, marginLeft: 10 }}>
+            <Text style={styles.safeCallBannerTitle}>100% Anonymous & Masked Calling</Text>
+            <Text style={styles.safeCallBannerSub}>
+              Your phone number, identity, and personal details are never shared with hosts. Connect with confidence.
+            </Text>
           </View>
-        </TouchableOpacity>
+        </View>
 
         {/* Why Choose Chatzie (Trust Pillars for Professional Website Feel) */}
         {isDesktop && (
@@ -866,6 +857,28 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '800',
     color: '#2563EB',
+  },
+  safeCallBanner: {
+    backgroundColor: '#F0FDF4',
+    marginHorizontal: 16,
+    marginTop: 20,
+    borderRadius: 16,
+    padding: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#BBF7D0',
+  },
+  safeCallBannerTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#166534',
+  },
+  safeCallBannerSub: {
+    fontSize: 12,
+    color: '#15803D',
+    marginTop: 2,
+    lineHeight: 17,
   },
   hostBanner: {
     backgroundColor: '#1E293B',

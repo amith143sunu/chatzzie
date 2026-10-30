@@ -22,6 +22,7 @@ import { ListenerOnboardingModal } from './src/screens/ListenerOnboardingModal';
 import { ListenerEarningsModal } from './src/screens/ListenerEarningsModal';
 import { LoginScreen } from './src/screens/LoginScreen';
 import { HostLiveScreen } from './src/screens/HostLiveScreen';
+import { HostPortalScreen } from './src/screens/HostPortalScreen';
 import { AdminScreen } from './src/screens/AdminScreen';
 import { DeviceFrame, ViewMode } from './src/components/DeviceFrame';
 import { InsufficientBalanceModal } from './src/components/InsufficientBalanceModal';
@@ -47,7 +48,8 @@ type ScreenView =
   | 'active_call'
   | 'account'
   | 'help'
-  | 'admin';
+  | 'admin'
+  | 'host_portal';
 
 class ErrorBoundary extends React.Component<
   { children: React.ReactNode },
@@ -459,6 +461,11 @@ export default function App() {
         return;
       }
 
+      if (pathname.startsWith('/host') || search.includes('portal=host') || hash.includes('host') || search.includes('role=host') || search.includes('role=listener')) {
+        setCurrentScreen('host_portal');
+        return;
+      }
+
       if (search) {
         const params = new URLSearchParams(search);
         const autocallHandle = params.get('autocall');
@@ -700,13 +707,51 @@ export default function App() {
     );
   };
 
+  // 0. Dedicated Host Partner Portal (/host)
+  if (currentScreen === 'host_portal') {
+    return (
+      <ErrorBoundary>
+        <SafeAreaView style={{ flex: 1, backgroundColor: '#0F172A' }}>
+          <StatusBar barStyle="light-content" backgroundColor="#0F172A" />
+          <HostPortalScreen
+            onBackToConsumerApp={() => {
+              if (typeof window !== 'undefined' && window.history && window.history.pushState) {
+                window.history.pushState({}, '', '/');
+              }
+              setCurrentScreen('tab_home');
+            }}
+            onHostLoginSuccess={(hostUser) => {
+              setUserRole('listener');
+              setUserName(hostUser.name);
+              setUserUsername(hostUser.username);
+              setUserAvatar(hostUser.avatarUrl);
+              setUserId(hostUser.id);
+              setIsAuthenticated(true);
+              if (typeof window !== 'undefined' && window.history && window.history.pushState) {
+                window.history.pushState({}, '', '/host');
+              }
+            }}
+          />
+        </SafeAreaView>
+      </ErrorBoundary>
+    );
+  }
+
   // 1. Unauthenticated Visitor -> Render ONLY the dedicated Full-Screen Login Page!
   if (!isAuthenticated) {
     return (
       <ErrorBoundary>
         <SafeAreaView style={{ flex: 1, backgroundColor: '#0F172A' }}>
           <StatusBar barStyle="light-content" backgroundColor="#0F172A" />
-          <LoginScreen onLoginSuccess={handleLoginSuccess} />
+          <LoginScreen
+            onLoginSuccess={handleLoginSuccess}
+            onOpenHostPortal={() => {
+              if (typeof window !== 'undefined' && window.history && window.history.pushState) {
+                window.history.pushState({}, '', '/host');
+              }
+              setCurrentScreen('host_portal');
+            }}
+          />
         </SafeAreaView>
       </ErrorBoundary>
     );
@@ -918,6 +963,12 @@ export default function App() {
             onHelpPress={() => setCurrentScreen('help')}
             onBecomeListenerPress={() => setShowOnboardingModal(true)}
             onEarningsPress={() => setShowEarningsModal(true)}
+            onOpenHostPortal={() => {
+              if (typeof window !== 'undefined' && window.history && window.history.pushState) {
+                window.history.pushState({}, '', '/host');
+              }
+              setCurrentScreen('host_portal');
+            }}
             onLogout={handleLogout}
           />
         )}
