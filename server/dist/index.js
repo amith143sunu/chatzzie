@@ -1073,7 +1073,7 @@ app.post('/api/chat/deduct', (req, res) => {
 });
 // Submit KYC from mobile app
 app.post('/api/listeners/kyc', (req, res) => {
-    const { name, username, phone, languages, bio, panNumber, upiId, isVideoEnabled } = req.body;
+    const { name, username, phone, languages, bio, panNumber, upiId, isVideoEnabled, voiceBioDuration, voiceBioUrl, bankAccount, bankIfsc, avatarUrl, } = req.body;
     const newApp = {
         id: `app-${Date.now()}`,
         name: name || 'Applicant Host',
@@ -1085,9 +1085,12 @@ app.post('/api/listeners/kyc', (req, res) => {
         bio: bio || 'Compassionate listener eager to connect and support.',
         panNumber: panNumber || 'ABCDE1234F',
         upiId: upiId || `${username || 'user'}@upi`,
-        voiceBioDurationSeconds: 20,
+        voiceBioDurationSeconds: Number(voiceBioDuration) || 20,
+        voiceBioUrl: voiceBioUrl || 'https://actions.google.com/sounds/v1/speech/voice_intro_1.mp3',
         appliedAt: 'Just now',
-        avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80',
+        avatarUrl: avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80',
+        bankAccount,
+        bankIfsc,
     };
     pendingKycApplications.unshift(newApp);
     io.emit('kyc_application_received', newApp);
@@ -1137,14 +1140,32 @@ app.post('/api/admin/kyc-action', (req, res) => {
                 totalReviews: 0,
                 followersCount: 0,
                 giftsCount: 0,
-                voiceBioUrl: 'https://actions.google.com/sounds/v1/speech/voice_intro_1.mp3',
+                voiceBioUrl: app.voiceBioUrl || 'https://actions.google.com/sounds/v1/speech/voice_intro_1.mp3',
                 voiceBioDurationSeconds: app.voiceBioDurationSeconds,
                 kycStatus: 'verified',
                 panNumber: app.panNumber,
                 upiId: app.upiId || `${app.username}@upi`,
                 isAvailableForCalls: true,
             };
+            newListener.phone = app.phone;
+            if (app.bankAccount)
+                newListener.bankAccount = app.bankAccount;
+            if (app.bankIfsc)
+                newListener.bankIfsc = app.bankIfsc;
             db_1.mockListeners.unshift(newListener);
+            // Add to mockUsers
+            db_1.mockUsers.unshift({
+                id: newListener.userId,
+                phone: app.phone,
+                name: app.name,
+                username: app.username,
+                avatarUrl: newListener.avatarUrl,
+                walletBalanceINR: 0,
+                role: 'listener',
+                isListenerVerified: true,
+                preferredLanguages: app.languages,
+                createdAt: new Date().toISOString(),
+            });
             io.emit('listeners_updated', db_1.mockListeners);
             return res.json({
                 success: true,
