@@ -3,6 +3,7 @@
     "name": "Chatzzie",
     "slug": "chatzzie",
     "version": "1.0.0",
+    "description": "1:1 Anonymous Voice & Video Calling and Conversational Wellness Platform",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -14,6 +15,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.chatzzie.app",
+      "buildNumber": "1",
       "infoPlist": {
         "NSMicrophoneUsageDescription": "Chatzzie requires microphone access for crystal clear 1-on-1 private voice calls.",
         "NSCameraUsageDescription": "Chatzzie requires camera access for private 1-on-1 video calls."
@@ -25,11 +27,14 @@
         "backgroundColor": "#1E40AF"
       },
       "package": "com.chatzzie.app",
+      "versionCode": 1,
       "permissions": [
         "android.permission.RECORD_AUDIO",
         "android.permission.CAMERA",
         "android.permission.INTERNET",
-        "android.permission.MODIFY_AUDIO_SETTINGS"
+        "android.permission.MODIFY_AUDIO_SETTINGS",
+        "android.permission.ACCESS_NETWORK_STATE",
+        "android.permission.WAKE_LOCK"
       ]
     },
     "web": {

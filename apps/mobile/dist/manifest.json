@@ -1,0 +1,17 @@
+{
+  "short_name": "Chatzzie",
+  "name": "Chatzzie - 1:1 Anonymous Voice & Video Calling",
+  "description": "Peer-to-peer anonymous social wellness and emotional listening platform with KYC-verified hosts.",
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "64x64 32x32 24x24 16x16",
+      "type": "image/x-icon"
+    }
+  ],
+  "start_url": "/",
+  "background_color": "#1E40AF",
+  "theme_color": "#1E40AF",
+  "display": "standalone",
+  "orientation": "portrait"
+}

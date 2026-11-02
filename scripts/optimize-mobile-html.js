@@ -57,6 +57,18 @@ if (fs.existsSync(htmlPath)) {
     html = html.replace('</body>', '<script src="https://checkout.razorpay.com/v1/checkout.js"></script></body>');
   }
 
+  // 5. PWA & Mobile App Store meta tags
+  const pwaMeta = `
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="theme-color" content="#1E40AF" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Chatzzie" />
+  `;
+  if (!html.includes('rel="manifest"')) {
+    html = html.replace('</head>', `${pwaMeta}</head>`);
+  }
+
   fs.writeFileSync(htmlPath, html);
-  console.log('[Chatzzie] Successfully optimized mobile HTML with zero-latency touch, Agora RTC, and Razorpay.');
+  console.log('[Chatzzie] Successfully optimized mobile HTML with zero-latency touch, Agora RTC, Razorpay, and PWA manifest.');
 }

@@ -16,6 +16,9 @@
     "build:server": "npm --workspace=server run build",
     "build:admin": "npm --workspace=apps/web-admin run build",
     "build:mobile": "cd apps/mobile && HOME=/tmp EXPO_NO_TELEMETRY=1 npx expo export --platform web && node ../../scripts/optimize-mobile-html.js",
+    "build:apk": "cd apps/mobile && npx --yes eas-cli build -p android --profile preview",
+    "build:aab": "cd apps/mobile && npx --yes eas-cli build -p android --profile production",
+    "build:ios": "cd apps/mobile && npx --yes eas-cli build -p ios --profile production",
     "dev:mobile": "npm --workspace=apps/mobile run dev",
     "dev:admin": "npm --workspace=apps/web-admin run dev",
     "dev:server": "npm --workspace=server run dev"
