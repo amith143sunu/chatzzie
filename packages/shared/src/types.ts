@@ -8,6 +8,7 @@ export interface User {
   id: string;
   phone: string;
   name: string;
+  username?: string;
   avatarUrl: string;
   walletBalanceINR: number;
   role: UserRole;

@@ -36,7 +36,7 @@ export default function PushCenterPage() {
   const [history, setHistory] = useState<PushHistory[]>([
     {
       id: 'push-1',
-      title: 'Welcome to Chatzie!',
+      title: 'Welcome to Chatzzie!',
       body: 'Verified listeners are available now for confidential voice & video calls.',
       target: 'All Users',
       sentAt: 'Today, 9:00 AM',

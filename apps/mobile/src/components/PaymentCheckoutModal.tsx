@@ -99,14 +99,84 @@ export const PaymentCheckoutModal: React.FC<PaymentCheckoutModalProps> = ({
       const orderData = await orderRes.json();
       const order = orderData.order || { orderId: `order_${Date.now()}` };
 
-      // 2. Gateway Handshake
+      // 2. If live Razorpay is active on server, launch Razorpay Standard Checkout
+      if (order.provider === 'razorpay' && typeof window !== 'undefined') {
+        setProcessingStep('Opening Secure Razorpay Payment Gateway...');
+        const isLoaded = await (async () => {
+          if ((window as any).Razorpay) return true;
+          return new Promise<boolean>((resolve) => {
+            const script = document.createElement('script');
+            script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+            script.async = true;
+            script.onload = () => resolve(true);
+            script.onerror = () => resolve(false);
+            document.body.appendChild(script);
+          });
+        })();
+
+        if (isLoaded && (window as any).Razorpay) {
+          const options = {
+            key: order.gatewayKeyId,
+            amount: Math.round(amount * 100),
+            currency: 'INR',
+            name: 'Chatzzie',
+            description: `Wallet Recharge: ₹${amount} (${amount * 10} Coins)`,
+            order_id: order.gatewayOrderId,
+            prefill: {
+              name: userName || 'Chatzzie User',
+              contact: '',
+            },
+            theme: { color: '#1E40AF' },
+            modal: {
+              ondismiss: () => {
+                setIsProcessing(false);
+                setProcessingStep('');
+              },
+            },
+            handler: async (response: any) => {
+              setProcessingStep('Settling payment with Chatzzie wallet...');
+              const verifyRes = await fetch(`${baseUrl}/api/payments/verify`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  orderId: order.orderId,
+                  gatewayOrderId: response.razorpay_order_id,
+                  gatewayPaymentId: response.razorpay_payment_id,
+                  gatewaySignature: response.razorpay_signature,
+                  amountINR: amount,
+                  cashbackINR: cashback,
+                  userId: userId || 'u-amit',
+                  paymentMethod: 'razorpay',
+                }),
+              });
+              const verifyData = await verifyRes.json();
+              setIsProcessing(false);
+              setIsSuccess(true);
+              setPaymentResult({
+                orderId: order.orderId,
+                paymentId: response.razorpay_payment_id,
+                amount,
+                cashback,
+              });
+              setTimeout(() => {
+                onPaymentSuccess(amount, cashback, response.razorpay_payment_id);
+              }, 1500);
+            },
+          };
+          const rzp = new (window as any).Razorpay(options);
+          rzp.open();
+          return;
+        }
+      }
+
+      // 3. Sandbox / Instant Simulated Checkout Flow
       setProcessingStep('Connecting to Bank 3D Secure / NPCI Gateway...');
       await new Promise((r) => setTimeout(r, 900));
 
       setProcessingStep('Verifying payment authenticity & credentials...');
       await new Promise((r) => setTimeout(r, 700));
 
-      // 3. Verify Payment with backend
+      // 4. Verify Payment with backend
       const generatedPaymentId = `pay_${Date.now()}_${Math.floor(100 + Math.random() * 900)}`;
       const verifyRes = await fetch(`${baseUrl}/api/payments/verify`, {
         method: 'POST',
@@ -233,7 +303,7 @@ export const PaymentCheckoutModal: React.FC<PaymentCheckoutModalProps> = ({
               </View>
 
               <TouchableOpacity style={styles.doneBtn} onPress={handleModalClose} activeOpacity={0.88}>
-                <Text style={styles.doneBtnText}>Continue to Chatzie</Text>
+                <Text style={styles.doneBtnText}>Continue to Chatzzie</Text>
               </TouchableOpacity>
             </View>
           ) : (

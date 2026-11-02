@@ -115,7 +115,7 @@ export const WelcomeGateModal: React.FC<WelcomeGateModalProps> = ({
             <View style={styles.brandIconBox}>
               <Heart size={28} color="#FFFFFF" fill="#FFFFFF" />
             </View>
-            <Text style={styles.brandName}>Welcome to Chatzie</Text>
+            <Text style={styles.brandName}>Welcome to Chatzzie</Text>
             <Text style={styles.brandSub}>
               Anonymous 1:1 Voice & Video Wellness Calling Platform
             </Text>

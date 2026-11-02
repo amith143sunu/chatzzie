@@ -62,7 +62,7 @@ export const CallsScreen: React.FC<CallsScreenProps> = ({
       {/* Mobile Header Bar (Only visible when NOT in Desktop mode) */}
       {!isDesktop && (
         <HeaderBar
-          title="Chatzie"
+          title="Chatzzie"
           balanceINR={balanceINR}
           onBalancePress={onBalancePress}
         />

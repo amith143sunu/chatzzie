@@ -350,10 +350,10 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           </View>
         </View>
 
-        {/* Why Choose Chatzie (Trust Pillars for Professional Website Feel) */}
+        {/* Why Choose Chatzzie (Trust Pillars for Professional Website Feel) */}
         {isDesktop && (
           <View style={styles.trustSection}>
-            <Text style={styles.trustSectionTitle}>Why People Trust Chatzie</Text>
+            <Text style={styles.trustSectionTitle}>Why People Trust Chatzzie</Text>
             <Text style={styles.trustSectionSub}>Built ground-up for maximum emotional comfort, privacy, and safety.</Text>
 
             <View style={styles.trustGrid}>
@@ -395,13 +395,13 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           <View style={styles.desktopFooter}>
             <View style={styles.footerInner}>
               <View>
-                <Text style={styles.footerBrand}>Chatzie</Text>
+                <Text style={styles.footerBrand}>Chatzzie</Text>
                 <Text style={styles.footerLegal}>
                   Peer-to-peer social wellness and emotional listening platform. Not a crisis or clinical psychiatric service.
                 </Text>
               </View>
               <Text style={styles.footerCopyright}>
-                © 2026 Chatzie Technologies Inc. All rights reserved.
+                © 2026 Chatzzie Technologies Private Limited. All rights reserved.
               </Text>
             </View>
           </View>

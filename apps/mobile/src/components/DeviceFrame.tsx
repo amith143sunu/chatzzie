@@ -70,7 +70,7 @@ export const DeviceFrame: React.FC<DeviceFrameProps> = ({
       <View style={styles.desktopHeader}>
         {/* Brand & Status */}
         <View style={styles.brandBadge}>
-          <Text style={styles.brandTitle}>Chatzie</Text>
+          <Text style={styles.brandTitle}>Chatzzie</Text>
           <View style={styles.liveIndicator}>
             <Radio size={12} color="#10B981" />
             <Text style={styles.liveText}>Live Agora RTC Engine</Text>

@@ -25,12 +25,12 @@ export const HelpScreen: React.FC<HelpScreenProps> = ({ onBackPress }) => {
 
   const faqs = [
     {
-      q: 'What kind of behaviour is not allowed on Chatzie?',
+      q: 'What kind of behaviour is not allowed on Chatzzie?',
       a: 'Any kind of abuse, harassment, hate speech, or inappropriate sexually explicit content is strictly not allowed. Accounts violating our community dignity standards are permanently banned.',
     },
     {
-      q: 'When is Chatzie customer support available?',
-      a: 'Chatzie customer support is available from Monday to Friday, 10:00 AM to 6:00 PM IST.',
+      q: 'When is Chatzzie customer support available?',
+      a: 'Chatzzie customer support is available from Monday to Friday, 10:00 AM to 6:00 PM IST.',
     },
     {
       q: 'What is strictly prohibited on this platform?',

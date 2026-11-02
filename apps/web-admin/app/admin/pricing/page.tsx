@@ -332,7 +332,7 @@ export default function PricingCouponsPage() {
             </div>
             <div>
               <h3 className="font-bold text-base text-slate-900">Default Platform Revenue Split</h3>
-              <p className="text-xs text-slate-500">Percentage retained by Chatzie from call billings</p>
+              <p className="text-xs text-slate-500">Percentage retained by Chatzzie from call billings</p>
             </div>
           </div>
 
@@ -340,7 +340,7 @@ export default function PricingCouponsPage() {
             <div className="flex items-center gap-2">
               <span className="text-xs font-bold text-slate-600">Listener: {100 - platformCommission}%</span>
               <span className="text-slate-300">|</span>
-              <span className="text-xs font-bold text-blue-700">Chatzie: {platformCommission}%</span>
+              <span className="text-xs font-bold text-blue-700">Chatzzie: {platformCommission}%</span>
             </div>
 
             <input

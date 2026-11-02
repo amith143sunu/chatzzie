@@ -2,8 +2,8 @@ import './globals.css';
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Chatzie Admin Backoffice',
-  description: 'Enterprise Administration Portal for Chatzie Voice & Video Platform',
+  title: 'Chatzzie Admin Backoffice',
+  description: 'Enterprise Administration Portal for Chatzzie Voice & Video Platform',
 };
 
 export default function RootLayout({

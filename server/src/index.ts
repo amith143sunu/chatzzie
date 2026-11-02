@@ -11,6 +11,7 @@ import {
   CATEGORIES,
   CallSession,
   WalletTransaction,
+  User,
   PushNotificationPayload,
   ListenerProfile,
   PayoutRequest,
@@ -27,6 +28,7 @@ import {
   ModerationReport
 } from './db';
 import { paymentService } from './services/paymentService';
+import { smsService } from './services/smsService';
 
 const app = express();
 const server = http.createServer(app);
@@ -161,7 +163,7 @@ app.post('/api/auth/login', handleAuthLoginOrSignup);
 
 app.get('/api/config', (req, res) => {
   res.json({
-    appName: 'Chatzie',
+    appName: 'Chatzzie',
     languages: TOP_LANGUAGES,
     categories: CATEGORIES,
     rechargePackages: DEFAULT_RECHARGE_PACKAGES,
@@ -211,39 +213,51 @@ app.get('/api/listeners/:id', (req, res) => {
 // 2. USER AUTHENTICATION & PROFILE
 // -------------------------------------------------------------------
 
-app.post('/api/auth/send-otp', (req, res) => {
+app.post('/api/auth/send-otp', async (req, res) => {
   const { phone } = req.body;
   if (!phone) return res.status(400).json({ error: 'Phone number required' });
-  // In development, mock OTP 123456
-  res.json({ success: true, message: 'OTP sent successfully', mockOtp: '123456' });
+
+  const result = await smsService.sendOtp(phone);
+  res.json(result);
 });
 
 app.post('/api/auth/verify-otp', (req, res) => {
-  const { phone, otp } = req.body;
-  if (otp !== '123456') {
-    return res.status(400).json({ error: 'Invalid verification code' });
+  const { phone, otp, name } = req.body;
+  if (!phone || !otp) {
+    return res.status(400).json({ error: 'Phone number and verification OTP are required' });
   }
 
-  let user = mockUsers.find(u => u.phone === phone);
+  const verification = smsService.verifyOtp(phone, otp);
+  if (!verification.verified) {
+    return res.status(400).json({ error: verification.message });
+  }
+
+  const cleanPhone = phone.trim();
+  let user: User | undefined = mockUsers.find(u => u.phone === cleanPhone || (u.phone && u.phone.endsWith(smsService.cleanPhone(cleanPhone))));
   if (!user) {
-    user = {
-      id: `u-${Date.now()}`,
-      phone,
-      name: 'New Talker',
+    const cleanName = (name || '').trim() || 'Talker ' + smsService.cleanPhone(cleanPhone).slice(-4);
+    const userId = `u-${Date.now()}`;
+    const newUser: User = {
+      id: userId,
+      phone: cleanPhone.startsWith('+') ? cleanPhone : `+91 ${smsService.cleanPhone(cleanPhone)}`,
+      name: cleanName,
+      username: cleanName.toLowerCase().replace(/[^a-z0-9]/g, '_') + '_' + Math.floor(100 + Math.random() * 900),
       avatarUrl: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=200&q=80',
-      walletBalanceINR: 20.00, // Welcome bonus ₹20
+      walletBalanceINR: 60.00, // Starter bonus ₹60
       role: 'talker',
       isListenerVerified: false,
       preferredLanguages: ['Hindi', 'English'],
       createdAt: new Date().toISOString(),
     };
-    mockUsers.push(user);
+    mockUsers.unshift(newUser);
+    user = newUser;
   }
 
+  const authenticatedUser = user!;
   res.json({
     success: true,
-    user,
-    token: `chatzie_jwt_${user.id}`
+    user: authenticatedUser,
+    token: `chatzzie_jwt_${authenticatedUser.id}`
   });
 });
 

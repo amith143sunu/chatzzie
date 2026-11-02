@@ -224,7 +224,7 @@ export const HostLiveScreen: React.FC<HostLiveScreenProps> = ({
 
               if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
                 try {
-                  new Notification(`Chatzie • ${newestCallerMsg.senderName}`, {
+                  new Notification(`Chatzzie • ${newestCallerMsg.senderName}`, {
                     body: newestCallerMsg.text || 'Sent a photo message',
                     icon: '/favicon.ico',
                   });
@@ -449,7 +449,7 @@ export const HostLiveScreen: React.FC<HostLiveScreenProps> = ({
           </View>
           <View>
             <View style={styles.brandTitleRow}>
-              <Text style={styles.brandTitle}>Chatzie Host Console</Text>
+              <Text style={styles.brandTitle}>Chatzzie Host Console</Text>
               <View style={[styles.livePulseDot, !isLive && styles.pulseDotOffline]} />
             </View>
             <Text style={styles.brandSub}>
@@ -601,7 +601,7 @@ export const HostLiveScreen: React.FC<HostLiveScreenProps> = ({
             </View>
 
             <Text style={styles.hostGreeting}>
-              {isLive ? `You are Live on Chatzie` : `Your Console is Paused`}
+              {isLive ? `You are Live on Chatzzie` : `Your Console is Paused`}
             </Text>
             <Text style={styles.hostHandle}>@{hostUsername || 'host'} • Verified Host</Text>
 
@@ -609,7 +609,7 @@ export const HostLiveScreen: React.FC<HostLiveScreenProps> = ({
               <View style={[styles.liveGreenPill, !isLive && styles.liveGreenPillOffline]}>
                 <CheckCircle2 size={13} color={isLive ? '#10B981' : '#64748B'} />
                 <Text style={[styles.liveGreenText, !isLive && { color: '#475569' }]}>
-                  {isLive ? 'Active on Chatzie Network • Ready for Calls' : 'Offline • Callers see you as Offline'}
+                  {isLive ? 'Active on Chatzzie Network • Ready for Calls' : 'Offline • Callers see you as Offline'}
                 </Text>
               </View>
               <Text style={styles.waitingNotice}>
@@ -1069,7 +1069,7 @@ export const HostLiveScreen: React.FC<HostLiveScreenProps> = ({
             <View style={styles.policyNoticeBox}>
               <AlertCircle size={14} color="#B91C1C" />
               <Text style={styles.policyNoticeText}>
-                Zero Tolerance Policy: Exchanging WhatsApp, Phone Numbers, or Instagram outside Chatzie leads to immediate permanent ban and confiscation of earnings.
+                Zero Tolerance Policy: Exchanging WhatsApp, Phone Numbers, or Instagram outside Chatzzie leads to immediate permanent ban and confiscation of earnings.
               </Text>
             </View>
             <TouchableOpacity

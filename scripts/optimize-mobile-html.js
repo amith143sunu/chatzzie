@@ -52,6 +52,11 @@ if (fs.existsSync(htmlPath)) {
     html = html.replace('</body>', '<script src="/AgoraRTC_N.js"></script></body>');
   }
 
+  // 4. Razorpay Checkout script
+  if (!html.includes('checkout.razorpay.com')) {
+    html = html.replace('</body>', '<script src="https://checkout.razorpay.com/v1/checkout.js"></script></body>');
+  }
+
   fs.writeFileSync(htmlPath, html);
-  console.log('[Chatzie] Successfully optimized mobile HTML with zero-latency touch and 100dvh viewport.');
+  console.log('[Chatzzie] Successfully optimized mobile HTML with zero-latency touch, Agora RTC, and Razorpay.');
 }

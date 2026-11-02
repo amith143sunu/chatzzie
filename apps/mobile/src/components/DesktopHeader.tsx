@@ -62,7 +62,7 @@ export const DesktopHeader: React.FC<DesktopHeaderProps> = ({
           </View>
           <View>
             <View style={styles.brandTitleRow}>
-              <Text style={styles.brandTitle}>Chatzie</Text>
+              <Text style={styles.brandTitle}>Chatzzie</Text>
               <View style={styles.livePulseDot} />
             </View>
             <Text style={styles.brandSubtitle}>1:1 Anonymous Calling</Text>

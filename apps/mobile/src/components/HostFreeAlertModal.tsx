@@ -39,7 +39,7 @@ export const HostFreeAlertModal: React.FC<HostFreeAlertModalProps> = ({
 
           <Text style={styles.title}>{hostName} is Now Free!</Text>
           <Text style={styles.sub}>
-            @{hostUsername} just ended their previous call and is ready for you on Chatzie. Connect now before someone else calls!
+            @{hostUsername} just ended their previous call and is ready for you on Chatzzie. Connect now before someone else calls!
           </Text>
 
           <View style={styles.btnRow}>

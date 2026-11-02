@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "Chatzie",
-    "slug": "chatzie",
+    "name": "Chatzzie",
+    "slug": "chatzzie",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -13,10 +13,10 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.chatzie.app",
+      "bundleIdentifier": "com.chatzzie.app",
       "infoPlist": {
-        "NSMicrophoneUsageDescription": "Chatzie requires microphone access for crystal clear 1-on-1 voice calls.",
-        "NSCameraUsageDescription": "Chatzie requires camera access for high-definition video calls."
+        "NSMicrophoneUsageDescription": "Chatzzie requires microphone access for crystal clear 1-on-1 private voice calls.",
+        "NSCameraUsageDescription": "Chatzzie requires camera access for private 1-on-1 video calls."
       }
     },
     "android": {
@@ -24,7 +24,7 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#1E40AF"
       },
-      "package": "com.chatzie.app",
+      "package": "com.chatzzie.app",
       "permissions": [
         "android.permission.RECORD_AUDIO",
         "android.permission.CAMERA",

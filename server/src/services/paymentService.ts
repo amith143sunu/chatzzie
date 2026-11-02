@@ -58,9 +58,9 @@ class PaymentService {
     return {
       provider: this.isLiveGatewayConfigured() ? this.provider : 'mock',
       isLive: this.isLiveGatewayConfigured(),
-      keyId: this.isLiveGatewayConfigured() ? this.keyId : 'rzp_test_chatzie_public',
+      keyId: this.isLiveGatewayConfigured() ? this.keyId : 'rzp_test_chatzzie_public',
       currency: 'INR',
-      name: 'Chatzie Wellness Platform',
+      name: 'Chatzzie',
       themeColor: '#1E40AF',
     };
   }
@@ -191,7 +191,7 @@ class PaymentService {
           currency: 'INR',
           mode: upiId ? 'UPI' : 'IMPS',
           purpose: 'payout',
-          narration: `Chatzie Payout to ${listenerName}`,
+          narration: `Chatzzie Payout to ${listenerName}`,
         };
 
         if (upiId) {

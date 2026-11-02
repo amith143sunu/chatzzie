@@ -210,7 +210,7 @@ export const ChatDetailScreen: React.FC<ChatDetailScreenProps> = ({
     if (hasDigits || wordNumbers.test(text) || socialPlatforms.test(text)) {
       setPolicyViolationModal({
         visible: true,
-        reason: 'Numeric digits, phone numbers, and external social media handles are strictly prohibited on Chatzie. Exchanging personal contact info outside the platform is monitored by AI and results in permanent account suspension.',
+        reason: 'Numeric digits, phone numbers, and external social media handles are strictly prohibited on Chatzzie. Exchanging personal contact info outside the platform is monitored by AI and results in permanent account suspension.',
       });
       return;
     }
@@ -582,7 +582,7 @@ export const ChatDetailScreen: React.FC<ChatDetailScreenProps> = ({
             <Text style={styles.policyModalBody}>{policyViolationModal.reason}</Text>
             <View style={styles.policyNoticeBox}>
               <Text style={styles.policyNoticeText}>
-                ⚠️ Account Ban Warning: Exchanging WhatsApp, Phone Numbers, or Social Media outside Chatzie will freeze your wallet and ban your phone number permanently.
+                ⚠️ Account Ban Warning: Exchanging WhatsApp, Phone Numbers, or Social Media outside Chatzzie will freeze your wallet and ban your phone number permanently.
               </Text>
             </View>
             <TouchableOpacity

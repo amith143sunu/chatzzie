@@ -82,7 +82,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             <div className="w-14 h-14 rounded-2xl bg-blue-600 flex items-center justify-center text-white shadow-lg shadow-blue-600/30 mb-4">
               <Lock className="w-7 h-7" />
             </div>
-            <h1 className="text-2xl font-bold text-white tracking-tight">Chatzie Master Console</h1>
+            <h1 className="text-2xl font-bold text-white tracking-tight">Chatzzie Master Console</h1>
             <p className="text-xs text-slate-400 mt-1">
               Restricted portal. Please verify your credentials to access the administrative dashboard.
             </p>
@@ -151,7 +151,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               <MessageSquare className="w-5 h-5" />
             </div>
             <div>
-              <h1 className="font-bold text-lg text-white tracking-tight leading-none">Chatzie</h1>
+              <h1 className="font-bold text-lg text-white tracking-tight leading-none">Chatzzie</h1>
               <span className="text-[11px] font-medium text-blue-200 tracking-wider uppercase">Admin Backoffice</span>
             </div>
           </div>

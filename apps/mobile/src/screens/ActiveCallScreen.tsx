@@ -1210,7 +1210,7 @@ export const ActiveCallScreen: React.FC<ActiveCallScreenProps> = ({
               <Text style={styles.giftTitle}>Report & End Call</Text>
             </View>
             <Text style={styles.giftSub}>
-              Chatzie has zero tolerance for misconduct. Select a violation reason to immediately disconnect and flag this user for admin review.
+              Chatzzie has zero tolerance for misconduct. Select a violation reason to immediately disconnect and flag this user for admin review.
             </Text>
 
             <View style={{ marginVertical: 12, gap: 8 }}>
@@ -1277,7 +1277,7 @@ export const ActiveCallScreen: React.FC<ActiveCallScreenProps> = ({
                 <Text style={styles.aiWarningQuoteText}>"{aiWarningModal.phrase}"</Text>
               </View>
               <Text style={styles.aiWarningDisclaimer}>
-                Chatzie strictly prohibits exchanging personal contacts, social media handles, or offline payment IDs. Continued attempts will result in immediate call termination and permanent account ban.
+                Chatzzie strictly prohibits exchanging personal contacts, social media handles, or offline payment IDs. Continued attempts will result in immediate call termination and permanent account ban.
               </Text>
               <TouchableOpacity
                 style={styles.aiWarningDismissBtn}

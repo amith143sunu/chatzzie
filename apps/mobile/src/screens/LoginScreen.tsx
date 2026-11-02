@@ -50,7 +50,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onOpen
   const [errorMsg, setErrorMsg] = useState('');
 
   // Step 1: Request OTP
-  const handleRequestOtp = () => {
+  const handleRequestOtp = async () => {
     const cleanPhone = phone.trim().replace(/\D/g, '');
     const cleanName = name.trim();
 
@@ -66,11 +66,26 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onOpen
     setErrorMsg('');
     setIsLoading(true);
 
-    setTimeout(() => {
+    try {
+      const baseUrl = getApiBaseUrl();
+      const res = await fetch(`${baseUrl}/api/auth/send-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: cleanPhone }),
+      });
+      const data = await res.json();
       setIsLoading(false);
       setStep('otp');
-      setOtp('1234'); // Pre-fill test OTP for instantaneous seamless testing
-    }, 400);
+      if (data && data.mockOtp) {
+        setOtp(data.mockOtp);
+      } else {
+        setOtp('');
+      }
+    } catch (e) {
+      setIsLoading(false);
+      setStep('otp');
+      setOtp('1234');
+    }
   };
 
   // Step 2: Verify OTP & Sign In
@@ -87,13 +102,13 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onOpen
 
     try {
       const baseUrl = getApiBaseUrl();
-      const res = await fetch(`${baseUrl}/api/auth/quick-signup`, {
+      const res = await fetch(`${baseUrl}/api/auth/verify-otp`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          name: cleanName,
           phone: `+91 ${cleanPhone}`,
-          role,
+          otp: otp.trim(),
+          name: cleanName,
         }),
       });
 
@@ -106,21 +121,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onOpen
         }
         onLoginSuccess(data.user);
       } else {
-        const localUser = {
-          id: `u_${Date.now()}`,
-          name: cleanName,
-          phone: `+91 ${cleanPhone}`,
-          username: cleanName.toLowerCase().replace(/[^a-z0-9]/g, '_') + '_' + Math.floor(100 + Math.random() * 900),
-          role,
-          walletBalanceINR: role === 'talker' ? 60 : 0,
-          avatarUrl: `https://images.unsplash.com/photo-${role === 'listener' ? '1544005313-94ddf0286df2' : '1535713875002-d1d0cf377fde'}?auto=format&fit=crop&w=300&q=80`,
-        };
-        if (typeof window !== 'undefined' && window.localStorage) {
-          window.localStorage.setItem('chatzie_auth_session', JSON.stringify(localUser));
-          window.localStorage.setItem('chatzie_user_profile', JSON.stringify(localUser));
-          window.localStorage.setItem('chatzie_current_user', JSON.stringify(localUser));
-        }
-        onLoginSuccess(localUser);
+        setErrorMsg(data.error || 'Verification failed. Please check the code.');
       }
     } catch (e) {
       const localUser = {
@@ -128,9 +129,9 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onOpen
         name: cleanName,
         phone: `+91 ${cleanPhone}`,
         username: cleanName.toLowerCase().replace(/[^a-z0-9]/g, '_') + '_' + Math.floor(100 + Math.random() * 900),
-        role,
-        walletBalanceINR: role === 'talker' ? 60 : 0,
-        avatarUrl: `https://images.unsplash.com/photo-${role === 'listener' ? '1544005313-94ddf0286df2' : '1535713875002-d1d0cf377fde'}?auto=format&fit=crop&w=300&q=80`,
+        role: 'talker' as const,
+        walletBalanceINR: 60,
+        avatarUrl: `https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=300&q=80`,
       };
       if (typeof window !== 'undefined' && window.localStorage) {
         window.localStorage.setItem('chatzie_auth_session', JSON.stringify(localUser));
@@ -169,7 +170,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onOpen
             <View style={styles.brandIconBox}>
               <Heart size={26} color="#FFFFFF" fill="#FFFFFF" />
             </View>
-            <Text style={styles.brandTitle}>Chatzie</Text>
+            <Text style={styles.brandTitle}>Chatzzie</Text>
             <Text style={styles.brandSubtitle}>
               1:1 Anonymous Voice & Video Wellness Calling
             </Text>
@@ -318,7 +319,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onOpen
                   <ActivityIndicator color="#FFFFFF" size="small" />
                 ) : (
                   <>
-                    <Text style={styles.primaryBtnText}>Verify & Login to Chatzie</Text>
+                    <Text style={styles.primaryBtnText}>Verify & Login to Chatzzie</Text>
                     <CheckCircle2 size={18} color="#FFFFFF" style={{ marginLeft: 6 }} />
                   </>
                 )}

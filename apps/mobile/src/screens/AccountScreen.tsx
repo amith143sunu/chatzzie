@@ -194,8 +194,8 @@ export const AccountScreen: React.FC<AccountScreenProps> = ({
             <Text style={styles.signOutText}>Change Account / Sign Out</Text>
           </TouchableOpacity>
 
-          <Text style={styles.versionText}>Version 1.0.179</Text>
-          <Text style={styles.companyText}>Chatzie Technologies Pvt. Ltd.</Text>
+          <Text style={styles.versionText}>Version 1.0.180</Text>
+          <Text style={styles.companyText}>Chatzzie Technologies Private Limited</Text>
         </View>
       </ScrollView>
 
@@ -250,7 +250,7 @@ export const AccountScreen: React.FC<AccountScreenProps> = ({
             ) : (
               <View>
                 <Text style={{ fontSize: 13, color: '#64748B', textAlign: 'center', marginVertical: 8 }}>
-                  How do you feel about connecting on Chatzie?
+                  How do you feel about connecting on Chatzzie?
                 </Text>
 
                 {/* Star Row */}
@@ -292,7 +292,7 @@ export const AccountScreen: React.FC<AccountScreenProps> = ({
               <View style={{ width: 56, height: 56, borderRadius: 28, backgroundColor: '#FEE2E2', justifyContent: 'center', alignItems: 'center', marginBottom: 12 }}>
                 <AlertTriangle size={28} color="#DC2626" />
               </View>
-              <Text style={{ fontSize: 18, fontWeight: '800', color: '#0F172A' }}>Delete Chatzie Account?</Text>
+              <Text style={{ fontSize: 18, fontWeight: '800', color: '#0F172A' }}>Delete Chatzzie Account?</Text>
             </View>
             <Text style={{ fontSize: 13, color: '#64748B', textAlign: 'center', lineHeight: 18, marginBottom: 20 }}>
               This will permanently purge your account data, coin balance, call logs, and private chats. This action is irreversible.

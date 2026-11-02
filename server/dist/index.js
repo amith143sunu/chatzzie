@@ -13,6 +13,7 @@ const agora_access_token_1 = require("agora-access-token");
 const shared_1 = require("@chatzie/shared");
 const db_1 = require("./db");
 const paymentService_1 = require("./services/paymentService");
+const smsService_1 = require("./services/smsService");
 const app = (0, express_1.default)();
 exports.app = app;
 const server = http_1.default.createServer(app);
@@ -134,7 +135,7 @@ app.post('/api/auth/quick-signup', handleAuthLoginOrSignup);
 app.post('/api/auth/login', handleAuthLoginOrSignup);
 app.get('/api/config', (req, res) => {
     res.json({
-        appName: 'Chatzie',
+        appName: 'Chatzzie',
         languages: shared_1.TOP_LANGUAGES,
         categories: shared_1.CATEGORIES,
         rechargePackages: shared_1.DEFAULT_RECHARGE_PACKAGES,
@@ -173,37 +174,47 @@ app.get('/api/listeners/:id', (req, res) => {
 // -------------------------------------------------------------------
 // 2. USER AUTHENTICATION & PROFILE
 // -------------------------------------------------------------------
-app.post('/api/auth/send-otp', (req, res) => {
+app.post('/api/auth/send-otp', async (req, res) => {
     const { phone } = req.body;
     if (!phone)
         return res.status(400).json({ error: 'Phone number required' });
-    // In development, mock OTP 123456
-    res.json({ success: true, message: 'OTP sent successfully', mockOtp: '123456' });
+    const result = await smsService_1.smsService.sendOtp(phone);
+    res.json(result);
 });
 app.post('/api/auth/verify-otp', (req, res) => {
-    const { phone, otp } = req.body;
-    if (otp !== '123456') {
-        return res.status(400).json({ error: 'Invalid verification code' });
+    const { phone, otp, name } = req.body;
+    if (!phone || !otp) {
+        return res.status(400).json({ error: 'Phone number and verification OTP are required' });
     }
-    let user = db_1.mockUsers.find(u => u.phone === phone);
+    const verification = smsService_1.smsService.verifyOtp(phone, otp);
+    if (!verification.verified) {
+        return res.status(400).json({ error: verification.message });
+    }
+    const cleanPhone = phone.trim();
+    let user = db_1.mockUsers.find(u => u.phone === cleanPhone || (u.phone && u.phone.endsWith(smsService_1.smsService.cleanPhone(cleanPhone))));
     if (!user) {
-        user = {
-            id: `u-${Date.now()}`,
-            phone,
-            name: 'New Talker',
+        const cleanName = (name || '').trim() || 'Talker ' + smsService_1.smsService.cleanPhone(cleanPhone).slice(-4);
+        const userId = `u-${Date.now()}`;
+        const newUser = {
+            id: userId,
+            phone: cleanPhone.startsWith('+') ? cleanPhone : `+91 ${smsService_1.smsService.cleanPhone(cleanPhone)}`,
+            name: cleanName,
+            username: cleanName.toLowerCase().replace(/[^a-z0-9]/g, '_') + '_' + Math.floor(100 + Math.random() * 900),
             avatarUrl: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=200&q=80',
-            walletBalanceINR: 20.00, // Welcome bonus ₹20
+            walletBalanceINR: 60.00, // Starter bonus ₹60
             role: 'talker',
             isListenerVerified: false,
             preferredLanguages: ['Hindi', 'English'],
             createdAt: new Date().toISOString(),
         };
-        db_1.mockUsers.push(user);
+        db_1.mockUsers.unshift(newUser);
+        user = newUser;
     }
+    const authenticatedUser = user;
     res.json({
         success: true,
-        user,
-        token: `chatzie_jwt_${user.id}`
+        user: authenticatedUser,
+        token: `chatzzie_jwt_${authenticatedUser.id}`
     });
 });
 app.get('/api/user/profile/:id', (req, res) => {
