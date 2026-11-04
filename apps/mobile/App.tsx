@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { Component, useState, useEffect, useRef } from 'react';
 import { StyleSheet, View, Text, TouchableOpacity, SafeAreaView, StatusBar, Alert, useWindowDimensions, Platform, Image } from 'react-native';
 import { BottomNavBar, NavTab } from './src/components/BottomNavBar';
 import { DesktopHeader } from './src/components/DesktopHeader';
@@ -50,9 +50,10 @@ type ScreenView =
   | 'account'
   | 'help'
   | 'admin'
-  | 'host_portal';
+  | 'host_portal'
+  | 'host_live';
 
-class ErrorBoundary extends React.Component<
+class ErrorBoundary extends Component<
   { children: React.ReactNode },
   { hasError: boolean; error: Error | null }
 > {

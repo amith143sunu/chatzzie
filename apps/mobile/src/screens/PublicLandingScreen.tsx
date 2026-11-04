@@ -38,6 +38,7 @@ import {
   Moon,
   AlertCircle,
   FileText,
+  HelpCircle,
   X,
 } from 'lucide-react-native';
 import { THEME } from '../theme';
@@ -766,7 +767,7 @@ export const PublicLandingScreen: React.FC<PublicLandingScreenProps> = ({
               <TouchableOpacity onPress={() => setPolicyModal({ visible: true, type: 'refund' })}>
                 <Text style={styles.footerLink}>Cancellation &amp; Refund Policy</Text>
               </TouchableOpacity>
-              <TouchableOpacity onPress={() => setPolicyModal({ visible: true, type: 'safety' })}>
+              <TouchableOpacity onPress={() => setPolicyModal({ visible: true, type: 'community' })}>
                 <Text style={styles.footerLink}>Community Care Guidelines</Text>
               </TouchableOpacity>
             </View>
