@@ -3,4 +3,4 @@
  *
  * This source code is licensed under the ISC license.
  * See the LICENSE file in the root directory of this source tree.
- */let a=(0,s(7879).Z)("Clock",[["circle",{cx:"12",cy:"12",r:"10",key:"1mglay"}],["polyline",{points:"12 6 12 12 16 14",key:"68esgv"}]])},2414:(e,t,s)=>{"use strict";s.r(t),s.d(t,{$$typeof:()=>r,__esModule:()=>n,default:()=>i});let a=(0,s(599).createProxy)(String.raw`/Users/vanithav/Documents/Baat App/apps/web-admin/app/admin/payouts/page.tsx`),{__esModule:n,$$typeof:r}=a,i=a.default}};var t=require("../../../webpack-runtime.js");t.C(e);var s=e=>t(t.s=e),a=t.X(0,[51,510,576],()=>s(3032));module.exports=a})();
+ */let a=(0,s(7879).Z)("Clock",[["circle",{cx:"12",cy:"12",r:"10",key:"1mglay"}],["polyline",{points:"12 6 12 12 16 14",key:"68esgv"}]])},2414:(e,t,s)=>{"use strict";s.r(t),s.d(t,{$$typeof:()=>r,__esModule:()=>n,default:()=>i});let a=(0,s(599).createProxy)(String.raw`/Users/vanithav/Documents/Baat App/apps/web-admin/app/admin/payouts/page.tsx`),{__esModule:n,$$typeof:r}=a,i=a.default}};var t=require("../../../webpack-runtime.js");t.C(e);var s=e=>t(t.s=e),a=t.X(0,[51,525,576],()=>s(3032));module.exports=a})();

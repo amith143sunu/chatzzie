@@ -16,7 +16,8 @@ import {
   Radio,
   MessageSquare,
   Lock,
-  ArrowRight
+  ArrowRight,
+  BookOpen
 } from 'lucide-react';
 
 const NAV_ITEMS = [
@@ -28,6 +29,7 @@ const NAV_ITEMS = [
   { label: 'Push Center', href: '/admin/push-center', icon: BellRing },
   { label: 'Payouts (RazorpayX)', href: '/admin/payouts', icon: CreditCard },
   { label: 'Pricing & Coupons', href: '/admin/pricing', icon: Tag },
+  { label: 'Blog & Articles', href: '/admin/blogs', icon: BookOpen },
 ];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {

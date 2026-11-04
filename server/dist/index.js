@@ -5,6 +5,8 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.io = exports.server = exports.app = exports.activeLiveSessions = void 0;
 require("dotenv/config");
+const fs_1 = __importDefault(require("fs"));
+const path_1 = __importDefault(require("path"));
 const express_1 = __importDefault(require("express"));
 const http_1 = __importDefault(require("http"));
 const socket_io_1 = require("socket.io");
@@ -1592,6 +1594,134 @@ app.post('/api/admin/pricing', (req, res) => {
         platformPricingSettings.platformCommissionPercent = Number(platformCommissionPercent);
     io.emit('pricing_updated', platformPricingSettings);
     res.json({ success: true, pricing: platformPricingSettings });
+});
+// -------------------------------------------------------------------
+// 5B. BLOG & CONTENT CMS ENDPOINTS
+// -------------------------------------------------------------------
+const BLOGS_FILE = path_1.default.join(__dirname, '../data/blogs.json');
+const getBlogsData = () => {
+    try {
+        if (fs_1.default.existsSync(BLOGS_FILE)) {
+            const raw = fs_1.default.readFileSync(BLOGS_FILE, 'utf-8');
+            return JSON.parse(raw);
+        }
+    }
+    catch (e) {
+        console.error('Error reading blogs.json:', e);
+    }
+    return [];
+};
+const saveBlogsData = (blogs) => {
+    try {
+        const dir = path_1.default.dirname(BLOGS_FILE);
+        if (!fs_1.default.existsSync(dir))
+            fs_1.default.mkdirSync(dir, { recursive: true });
+        fs_1.default.writeFileSync(BLOGS_FILE, JSON.stringify(blogs, null, 2), 'utf-8');
+    }
+    catch (e) {
+        console.error('Error writing blogs.json:', e);
+    }
+};
+// Public list of published blogs
+app.get('/api/blogs', (req, res) => {
+    const blogs = getBlogsData();
+    const published = blogs.filter((b) => b.isPublished);
+    const { category, search } = req.query;
+    let filtered = published;
+    if (category && typeof category === 'string' && category !== 'All') {
+        filtered = filtered.filter((b) => b.category.toLowerCase() === category.toLowerCase());
+    }
+    if (search && typeof search === 'string') {
+        const q = search.toLowerCase();
+        filtered = filtered.filter((b) => b.title.toLowerCase().includes(q) ||
+            b.excerpt.toLowerCase().includes(q) ||
+            b.tags.some((t) => t.toLowerCase().includes(q)));
+    }
+    res.json({ success: true, blogs: filtered });
+});
+// Public single blog post by slug
+app.get('/api/blogs/:slug', (req, res) => {
+    const blogs = getBlogsData();
+    const post = blogs.find((b) => b.slug === req.params.slug);
+    if (!post) {
+        return res.status(404).json({ success: false, error: 'Article not found' });
+    }
+    // Increment view count
+    post.viewsCount = (post.viewsCount || 0) + 1;
+    saveBlogsData(blogs);
+    res.json({ success: true, post });
+});
+// Admin: Get all blogs (including drafts)
+app.get('/api/admin/blogs', (req, res) => {
+    const blogs = getBlogsData();
+    res.json({ success: true, blogs });
+});
+// Admin: Create new blog post
+app.post('/api/admin/blogs', (req, res) => {
+    const { title, slug, excerpt, content, coverImage, category, tags, authorName, authorAvatar, readTimeMinutes, isPublished, } = req.body;
+    if (!title || !content) {
+        return res.status(400).json({ success: false, error: 'Title and content are required' });
+    }
+    const blogs = getBlogsData();
+    const cleanSlug = (slug ? String(slug).trim() : title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')) ||
+        `blog-${Date.now()}`;
+    const newPost = {
+        id: `blog_${Date.now()}`,
+        slug: cleanSlug,
+        title,
+        excerpt: excerpt || title,
+        content,
+        coverImage: coverImage ||
+            'https://images.unsplash.com/photo-1518495973542-4542c06a5843?auto=format&fit=crop&w=800&q=80',
+        category: category || 'Emotional Wellness',
+        tags: Array.isArray(tags)
+            ? tags
+            : typeof tags === 'string'
+                ? tags.split(',').map((t) => t.trim()).filter(Boolean)
+                : ['Chatzzie'],
+        authorName: authorName || 'Editorial Team',
+        authorAvatar: authorAvatar ||
+            'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80',
+        readTimeMinutes: Number(readTimeMinutes) || 4,
+        isPublished: isPublished !== undefined ? Boolean(isPublished) : true,
+        publishedAt: new Date().toISOString(),
+        viewsCount: 0,
+    };
+    blogs.unshift(newPost);
+    saveBlogsData(blogs);
+    res.json({ success: true, post: newPost });
+});
+// Admin: Update blog post
+app.put('/api/admin/blogs/:id', (req, res) => {
+    const blogs = getBlogsData();
+    const index = blogs.findIndex((b) => b.id === req.params.id || b.slug === req.params.id);
+    if (index === -1) {
+        return res.status(404).json({ success: false, error: 'Article not found' });
+    }
+    const existing = blogs[index];
+    const updated = {
+        ...existing,
+        ...req.body,
+        tags: Array.isArray(req.body.tags)
+            ? req.body.tags
+            : typeof req.body.tags === 'string'
+                ? req.body.tags.split(',').map((t) => t.trim()).filter(Boolean)
+                : existing.tags,
+    };
+    blogs[index] = updated;
+    saveBlogsData(blogs);
+    res.json({ success: true, post: updated });
+});
+// Admin: Delete blog post
+app.delete('/api/admin/blogs/:id', (req, res) => {
+    let blogs = getBlogsData();
+    const existing = blogs.find((b) => b.id === req.params.id || b.slug === req.params.id);
+    if (!existing) {
+        return res.status(404).json({ success: false, error: 'Article not found' });
+    }
+    blogs = blogs.filter((b) => b.id !== req.params.id && b.slug !== req.params.id);
+    saveBlogsData(blogs);
+    res.json({ success: true, message: 'Article deleted successfully' });
 });
 // -------------------------------------------------------------------
 // 6. REAL-TIME SOCKET.IO SIGNALING & MINUTE-BY-MINUTE BILLING

@@ -159,3 +159,19 @@ export interface ListenerEarningsSummary {
     totalVideoMinutes: number;
     totalChatMessages: number;
 }
+export interface BlogPost {
+    id: string;
+    slug: string;
+    title: string;
+    excerpt: string;
+    content: string;
+    coverImage: string;
+    category: string;
+    tags: string[];
+    authorName: string;
+    authorAvatar: string;
+    readTimeMinutes: number;
+    isPublished: boolean;
+    publishedAt: string;
+    viewsCount?: number;
+}
