@@ -92,7 +92,7 @@ export const FaqScreen: React.FC<FaqScreenProps> = ({
   });
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.contentWrap}>
+    <View style={styles.container}>
       {/* Header Banner */}
       <View style={styles.headerBanner}>
         <View style={styles.pillBadge}>
@@ -172,7 +172,7 @@ export const FaqScreen: React.FC<FaqScreenProps> = ({
           <Text style={styles.ctaBtnText}>Start Talking Online (Free Web App)</Text>
         </TouchableOpacity>
       </View>
-    </ScrollView>
+    </View>
   );
 };
 

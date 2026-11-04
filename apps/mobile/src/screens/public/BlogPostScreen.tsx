@@ -99,7 +99,7 @@ export const BlogPostScreen: React.FC<BlogPostScreenProps> = ({
   }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.contentWrap}>
+    <View style={styles.container}>
       <View style={styles.articleContainer}>
         {/* Breadcrumb / Back button */}
         <TouchableOpacity style={styles.backLinkRow} onPress={() => onNavigate('/blog')}>
@@ -208,7 +208,7 @@ export const BlogPostScreen: React.FC<BlogPostScreenProps> = ({
           ))}
         </View>
       </View>
-    </ScrollView>
+    </View>
   );
 };
 

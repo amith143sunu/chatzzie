@@ -138,7 +138,7 @@ export const PublicHomeScreen: React.FC<PublicHomeScreenProps> = ({
   };
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.contentWrap}>
+    <View style={styles.container}>
       {/* 1. Hero Section */}
       <View style={styles.heroSection}>
         <View style={styles.liveBadgeRow}>
@@ -390,7 +390,7 @@ export const PublicHomeScreen: React.FC<PublicHomeScreenProps> = ({
           </TouchableOpacity>
         </View>
       </View>
-    </ScrollView>
+    </View>
   );
 };
 

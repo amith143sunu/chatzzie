@@ -52,7 +52,7 @@ export const DownloadHubScreen: React.FC<DownloadHubScreenProps> = ({
   };
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.contentWrap}>
+    <View style={styles.container}>
       {/* Header Banner */}
       <View style={styles.headerBanner}>
         <View style={styles.pillBadge}>
@@ -167,7 +167,7 @@ export const DownloadHubScreen: React.FC<DownloadHubScreenProps> = ({
           </TouchableOpacity>
         </View>
       </View>
-    </ScrollView>
+    </View>
   );
 };
 

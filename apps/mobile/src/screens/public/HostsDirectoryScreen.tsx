@@ -174,7 +174,7 @@ export const HostsDirectoryScreen: React.FC<HostsDirectoryScreenProps> = ({
   });
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.contentWrap}>
+    <View style={styles.container}>
       {/* Header Banner */}
       <View style={styles.headerBanner}>
         <View style={styles.pillBadge}>
@@ -310,7 +310,7 @@ export const HostsDirectoryScreen: React.FC<HostsDirectoryScreenProps> = ({
           </TouchableOpacity>
         </View>
       </View>
-    </ScrollView>
+    </View>
   );
 };
 

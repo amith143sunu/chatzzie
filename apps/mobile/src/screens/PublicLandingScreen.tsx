@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
+  ScrollView,
   StyleSheet,
   Modal,
   TouchableOpacity,
@@ -43,6 +44,7 @@ export const PublicLandingScreen: React.FC<PublicLandingScreenProps> = ({
   });
 
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
+  const scrollViewRef = useRef<ScrollView>(null);
 
   // Sync route on popstate (browser back and forward buttons)
   useEffect(() => {
@@ -50,6 +52,9 @@ export const PublicLandingScreen: React.FC<PublicLandingScreenProps> = ({
       const handlePopState = () => {
         const path = window.location.pathname || '/';
         setCurrentPath(path);
+        if (scrollViewRef.current) {
+          scrollViewRef.current.scrollTo({ y: 0, animated: false });
+        }
       };
 
       window.addEventListener('popstate', handlePopState);
@@ -68,6 +73,10 @@ export const PublicLandingScreen: React.FC<PublicLandingScreenProps> = ({
     }
 
     setCurrentPath(path);
+
+    if (scrollViewRef.current) {
+      scrollViewRef.current.scrollTo({ y: 0, animated: false });
+    }
 
     if (typeof window !== 'undefined') {
       if (window.history && window.history.pushState) {
@@ -181,18 +190,25 @@ export const PublicLandingScreen: React.FC<PublicLandingScreenProps> = ({
         onOpenHostPortal={onOpenHostPortal}
       />
 
-      {/* 2. Active Individual Page */}
-      <View style={styles.pageBody}>
-        {renderCurrentPage()}
-      </View>
+      {/* 2. Scrollable Body with Page Content & Public Footer */}
+      <ScrollView
+        ref={scrollViewRef}
+        style={styles.mainScrollView}
+        contentContainerStyle={styles.mainScrollContent}
+        showsVerticalScrollIndicator={true}
+      >
+        <View style={styles.pageBody}>
+          {renderCurrentPage()}
+        </View>
 
-      {/* 3. Global Public Footer */}
-      <PublicFooter
-        onNavigate={navigateTo}
-        onOpenLogin={() => setIsLoginModalOpen(true)}
-        onOpenHostPortal={onOpenHostPortal}
-        onOpenAdminLogin={onOpenAdminLogin}
-      />
+        {/* 3. Global Public Footer (Scrolls naturally at bottom of content) */}
+        <PublicFooter
+          onNavigate={navigateTo}
+          onOpenLogin={() => setIsLoginModalOpen(true)}
+          onOpenHostPortal={onOpenHostPortal}
+          onOpenAdminLogin={onOpenAdminLogin}
+        />
+      </ScrollView>
 
       {/* 4. Instant Sign In Modal */}
       <Modal
@@ -230,10 +246,21 @@ export const PublicLandingScreen: React.FC<PublicLandingScreenProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    height: '100%',
     backgroundColor: '#FFFFFF',
+  },
+  mainScrollView: {
+    flex: 1,
+    width: '100%',
+  },
+  mainScrollContent: {
+    flexGrow: 1,
+    flexDirection: 'column',
+    justifyContent: 'space-between',
   },
   pageBody: {
     flex: 1,
+    width: '100%',
   },
   loginModalOverlay: {
     flex: 1,

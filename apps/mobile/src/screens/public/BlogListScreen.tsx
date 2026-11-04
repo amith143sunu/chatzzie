@@ -84,7 +84,7 @@ export const BlogListScreen: React.FC<BlogListScreenProps> = ({
   });
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.contentWrap}>
+    <View style={styles.container}>
       {/* Header Banner */}
       <View style={styles.headerBanner}>
         <View style={styles.pillBadge}>
@@ -208,7 +208,7 @@ export const BlogListScreen: React.FC<BlogListScreenProps> = ({
           <Text style={styles.ctaBtnText}>Start Talking Online (Free Web App)</Text>
         </TouchableOpacity>
       </View>
-    </ScrollView>
+    </View>
   );
 };
 

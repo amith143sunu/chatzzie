@@ -57,7 +57,7 @@ export const HowItWorksScreen: React.FC<HowItWorksScreenProps> = ({
   ];
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.contentWrap}>
+    <View style={styles.container}>
       {/* Header Banner */}
       <View style={styles.headerBanner}>
         <View style={styles.pillBadge}>
@@ -142,7 +142,7 @@ export const HowItWorksScreen: React.FC<HowItWorksScreenProps> = ({
           <Text style={styles.ctaBtnText}>Start Talking Online (Free Web App)</Text>
         </TouchableOpacity>
       </View>
-    </ScrollView>
+    </View>
   );
 };
 

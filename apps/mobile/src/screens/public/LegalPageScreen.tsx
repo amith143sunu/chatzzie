@@ -40,7 +40,7 @@ export const LegalPageScreen: React.FC<LegalPageScreenProps> = ({
   };
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.contentWrap}>
+    <View style={styles.container}>
       <View style={styles.headerBanner}>
         <View style={styles.pillBadge}>
           <Shield size={14} color="#4F46E5" />
@@ -174,7 +174,7 @@ export const LegalPageScreen: React.FC<LegalPageScreenProps> = ({
           )}
         </View>
       </View>
-    </ScrollView>
+    </View>
   );
 };
 
