@@ -57,6 +57,7 @@ export const PublicLandingScreen: React.FC<PublicLandingScreenProps> = ({
 }) => {
   const { width } = useWindowDimensions();
   const isDesktop = width > 768;
+  const isWide = width > 900;
 
   // Login Modal State
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
@@ -377,7 +378,7 @@ export const PublicLandingScreen: React.FC<PublicLandingScreenProps> = ({
         </View>
 
         {/* 3. Live Verified Hosts Showcase */}
-        <View id="hosts-showcase-sec" style={styles.sectionWrap}>
+        <View nativeID="hosts-showcase-sec" style={styles.sectionWrap}>
           <View style={styles.sectionHeader}>
             <View style={styles.sectionPill}>
               <Heart size={14} color="#DB2777" />
@@ -393,7 +394,10 @@ export const PublicLandingScreen: React.FC<PublicLandingScreenProps> = ({
             {featuredHosts.map((host) => {
               const isPlaying = playingHostId === host.id;
               return (
-                <View key={host.id} style={styles.hostShowcaseCard}>
+                <View
+                  key={host.id}
+                  style={[styles.hostShowcaseCard, isWide && styles.hostShowcaseCardDesktop]}
+                >
                   <View style={styles.hostCardHeader}>
                     <View style={styles.hostAvatarWrapper}>
                       <Image source={{ uri: host.avatar }} style={styles.hostAvatar} />
@@ -462,7 +466,7 @@ export const PublicLandingScreen: React.FC<PublicLandingScreenProps> = ({
         </View>
 
         {/* 4. Why People Use Chatzzie (Relatable Prompts) */}
-        <View id="why-chatzzie-sec" style={[styles.sectionWrap, { backgroundColor: '#F8FAFC' }]}>
+        <View nativeID="why-chatzzie-sec" style={[styles.sectionWrap, { backgroundColor: '#F8FAFC' }]}>
           <View style={styles.sectionHeader}>
             <View style={styles.sectionPill}>
               <Smile size={14} color="#4F46E5" />
@@ -475,7 +479,7 @@ export const PublicLandingScreen: React.FC<PublicLandingScreenProps> = ({
           </View>
 
           <View style={styles.promptsGrid}>
-            <View style={styles.promptCard}>
+            <View style={[styles.promptCard, isDesktop && styles.promptCardDesktop]}>
               <View style={[styles.promptIconBox, { backgroundColor: '#EEF2FF' }]}>
                 <Moon size={22} color="#4F46E5" />
               </View>
@@ -485,7 +489,7 @@ export const PublicLandingScreen: React.FC<PublicLandingScreenProps> = ({
               </Text>
             </View>
 
-            <View style={styles.promptCard}>
+            <View style={[styles.promptCard, isDesktop && styles.promptCardDesktop]}>
               <View style={[styles.promptIconBox, { backgroundColor: '#FDF2F8' }]}>
                 <Heart size={22} color="#DB2777" />
               </View>
@@ -495,7 +499,7 @@ export const PublicLandingScreen: React.FC<PublicLandingScreenProps> = ({
               </Text>
             </View>
 
-            <View style={styles.promptCard}>
+            <View style={[styles.promptCard, isDesktop && styles.promptCardDesktop]}>
               <View style={[styles.promptIconBox, { backgroundColor: '#FEF3C7' }]}>
                 <Flame size={22} color="#D97706" />
               </View>
@@ -505,7 +509,7 @@ export const PublicLandingScreen: React.FC<PublicLandingScreenProps> = ({
               </Text>
             </View>
 
-            <View style={styles.promptCard}>
+            <View style={[styles.promptCard, isDesktop && styles.promptCardDesktop]}>
               <View style={[styles.promptIconBox, { backgroundColor: '#F0FDF4' }]}>
                 <Users size={22} color="#059669" />
               </View>
@@ -518,7 +522,7 @@ export const PublicLandingScreen: React.FC<PublicLandingScreenProps> = ({
         </View>
 
         {/* 5. How It Works (Step-by-Step) */}
-        <View id="how-it-works-sec" style={styles.sectionWrap}>
+        <View nativeID="how-it-works-sec" style={styles.sectionWrap}>
           <View style={styles.sectionHeader}>
             <View style={styles.sectionPill}>
               <Sparkles size={14} color="#059669" />
@@ -530,7 +534,7 @@ export const PublicLandingScreen: React.FC<PublicLandingScreenProps> = ({
             </Text>
           </View>
 
-          <View style={styles.stepsContainer}>
+          <View style={[styles.stepsContainer, isDesktop && styles.stepsContainerDesktop]}>
             <View style={styles.stepCard}>
               <View style={styles.stepNumberBadge}>
                 <Text style={styles.stepNumberText}>1</Text>
@@ -590,7 +594,7 @@ export const PublicLandingScreen: React.FC<PublicLandingScreenProps> = ({
 
         {/* 7. Dedicated Host Partner Recruitment Banner */}
         <View style={styles.hostBannerSection}>
-          <View style={styles.hostBannerCard}>
+          <View style={[styles.hostBannerCard, isDesktop && styles.hostBannerCardDesktop]}>
             <View style={styles.hostBannerContent}>
               <View style={styles.hostBannerPill}>
                 <Sparkles size={14} color="#FFFFFF" />
@@ -625,7 +629,7 @@ export const PublicLandingScreen: React.FC<PublicLandingScreenProps> = ({
         </View>
 
         {/* 8. Download Mobile Apps Showcase */}
-        <View id="download-apps-sec" style={[styles.sectionWrap, { backgroundColor: '#0B0F19' }]}>
+        <View nativeID="download-apps-sec" style={[styles.sectionWrap, { backgroundColor: '#0B0F19' }]}>
           <View style={styles.sectionHeader}>
             <View style={[styles.sectionPill, { backgroundColor: 'rgba(255,255,255,0.1)' }]}>
               <Smartphone size={14} color="#818CF8" />
@@ -637,7 +641,7 @@ export const PublicLandingScreen: React.FC<PublicLandingScreenProps> = ({
             </Text>
           </View>
 
-          <View style={styles.downloadRow}>
+          <View style={[styles.downloadRow, isDesktop && styles.downloadRowDesktop]}>
             {/* Google Play */}
             <TouchableOpacity style={styles.downloadOptionCard} onPress={handleDownloadApk}>
               <View style={[styles.downloadIconWrap, { backgroundColor: '#064E3B' }]}>
@@ -683,7 +687,7 @@ export const PublicLandingScreen: React.FC<PublicLandingScreenProps> = ({
         </View>
 
         {/* 9. FAQ Accordion */}
-        <View id="faq-sec" style={styles.sectionWrap}>
+        <View nativeID="faq-sec" style={styles.sectionWrap}>
           <View style={styles.sectionHeader}>
             <View style={styles.sectionPill}>
               <HelpCircle size={14} color="#4F46E5" />
@@ -713,7 +717,7 @@ export const PublicLandingScreen: React.FC<PublicLandingScreenProps> = ({
 
         {/* 10. Corporate Legal & Compliance Footer */}
         <View style={styles.footerWrap}>
-          <View style={styles.footerInner}>
+          <View style={[styles.footerInner, isDesktop && styles.footerInnerDesktop]}>
             <View style={styles.footerBrandCol}>
               <View style={styles.footerBrandRow}>
                 <View style={styles.brandIconBox}>
@@ -768,7 +772,7 @@ export const PublicLandingScreen: React.FC<PublicLandingScreenProps> = ({
             </View>
           </View>
 
-          <View style={styles.footerBottomRow}>
+          <View style={[styles.footerBottomRow, isDesktop && styles.footerBottomRowDesktop]}>
             <Text style={styles.copyrightText}>
               © 2026 Chatzzie Technologies Private Limited. All rights reserved.
             </Text>
@@ -976,7 +980,6 @@ const styles = StyleSheet.create({
     height: 300,
     backgroundColor: 'rgba(99, 102, 241, 0.08)',
     borderRadius: 200,
-    filter: 'blur(80px)' as any,
   },
   liveBadgeRow: {
     flexDirection: 'row',
@@ -1208,7 +1211,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderRadius: 20,
     padding: 20,
-    width: Platform.OS === 'web' && width > 900 ? '31%' : '100%',
+    width: '100%',
     maxWidth: 380,
     borderWidth: 1,
     borderColor: '#E2E8F0',
@@ -1217,6 +1220,9 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.08,
     shadowRadius: 16,
     elevation: 4,
+  },
+  hostShowcaseCardDesktop: {
+    width: '31%',
   },
   hostCardHeader: {
     flexDirection: 'row',
@@ -1375,9 +1381,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderRadius: 18,
     padding: 22,
-    width: Platform.OS === 'web' && width > 768 ? '47%' : '100%',
+    width: '100%',
     borderWidth: 1,
     borderColor: '#E2E8F0',
+  },
+  promptCardDesktop: {
+    width: '47%',
   },
   promptIconBox: {
     width: 44,
@@ -1401,8 +1410,11 @@ const styles = StyleSheet.create({
 
   // Steps
   stepsContainer: {
-    flexDirection: Platform.OS === 'web' && width > 768 ? 'row' : 'column',
+    flexDirection: 'column',
     gap: 20,
+  },
+  stepsContainerDesktop: {
+    flexDirection: 'row',
   },
   stepCard: {
     flex: 1,
@@ -1487,7 +1499,7 @@ const styles = StyleSheet.create({
   hostBannerCard: {
     backgroundColor: '#0F172A',
     borderRadius: 24,
-    padding: Platform.OS === 'web' && width > 768 ? 44 : 28,
+    padding: 28,
     borderWidth: 1,
     borderColor: '#334155',
     shadowColor: '#000',
@@ -1495,6 +1507,9 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 24,
     elevation: 8,
+  },
+  hostBannerCardDesktop: {
+    padding: 44,
   },
   hostBannerContent: {
     maxWidth: 720,
@@ -1560,8 +1575,11 @@ const styles = StyleSheet.create({
 
   // Download Row
   downloadRow: {
-    flexDirection: Platform.OS === 'web' && width > 768 ? 'row' : 'column',
+    flexDirection: 'column',
     gap: 20,
+  },
+  downloadRowDesktop: {
+    flexDirection: 'row',
   },
   downloadOptionCard: {
     flex: 1,
@@ -1659,10 +1677,13 @@ const styles = StyleSheet.create({
     maxWidth: 1200,
     width: '100%',
     alignSelf: 'center',
-    flexDirection: Platform.OS === 'web' && width > 768 ? 'row' : 'column',
+    flexDirection: 'column',
     gap: 40,
     justifyContent: 'space-between',
     marginBottom: 40,
+  },
+  footerInnerDesktop: {
+    flexDirection: 'row',
   },
   footerBrandCol: {
     maxWidth: 380,
@@ -1718,9 +1739,12 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: '#1E293B',
     paddingTop: 24,
-    flexDirection: Platform.OS === 'web' && width > 768 ? 'row' : 'column',
+    flexDirection: 'column',
     justifyContent: 'space-between',
     gap: 12,
+  },
+  footerBottomRowDesktop: {
+    flexDirection: 'row',
   },
   copyrightText: {
     fontSize: 12,
