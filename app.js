@@ -85,8 +85,11 @@ try {
       console.warn('[Chatzie] Notice: Next.js admin app background warm-up:', err.message);
     });
 
-  // Route Admin requests to Next.js handler
+  // Route Admin requests to Next.js handler (Protect bare /admin - require /admin/login)
   const handleAdminRequest = (req, res) => {
+    if (req.path === '/admin' || req.path === '/admin/') {
+      return res.redirect('/admin/login');
+    }
     if (adminHandler) {
       return adminHandler(req, res);
     }

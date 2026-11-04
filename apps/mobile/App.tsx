@@ -21,6 +21,7 @@ import { HelpScreen } from './src/screens/HelpScreen';
 import { ListenerOnboardingModal } from './src/screens/ListenerOnboardingModal';
 import { ListenerEarningsModal } from './src/screens/ListenerEarningsModal';
 import { LoginScreen } from './src/screens/LoginScreen';
+import { PublicLandingScreen } from './src/screens/PublicLandingScreen';
 import { HostLiveScreen } from './src/screens/HostLiveScreen';
 import { HostPortalScreen } from './src/screens/HostPortalScreen';
 import { AdminScreen } from './src/screens/AdminScreen';
@@ -456,12 +457,31 @@ export default function App() {
       const search = window.location.search || '';
       const hash = window.location.hash || '';
 
-      if (pathname.startsWith('/admin') || search.includes('role=admin') || hash.includes('admin')) {
+      // Only open Admin if exact private path /admin/login is visited!
+      if (
+        pathname === '/admin/login' ||
+        pathname.startsWith('/admin/login') ||
+        search.includes('key=admin_login') ||
+        hash.includes('admin/login')
+      ) {
         setCurrentScreen('admin');
         return;
       }
 
-      if (pathname.startsWith('/host') || search.includes('portal=host') || hash.includes('host') || search.includes('role=host') || search.includes('role=listener')) {
+      // If someone visits /admin without /login, keep on home and rewrite URL to /
+      if (pathname === '/admin' || pathname === '/admin/') {
+        if (window.history && window.history.replaceState) {
+          window.history.replaceState({}, '', '/');
+        }
+      }
+
+      if (
+        pathname.startsWith('/host') ||
+        search.includes('portal=host') ||
+        hash.includes('host') ||
+        search.includes('role=host') ||
+        search.includes('role=listener')
+      ) {
         setCurrentScreen('host_portal');
         return;
       }
@@ -737,19 +757,43 @@ export default function App() {
     );
   }
 
-  // 1. Unauthenticated Visitor -> Render ONLY the dedicated Full-Screen Login Page!
+  // 1. Unauthenticated Visitor -> Render the Full Public Website & Landing Portal (like baatein.in)!
   if (!isAuthenticated) {
+    if (currentScreen === 'admin') {
+      return (
+        <ErrorBoundary>
+          <SafeAreaView style={{ flex: 1, backgroundColor: '#0F172A' }}>
+            <StatusBar barStyle="light-content" backgroundColor="#0F172A" />
+            <AdminScreen
+              onBackToApp={() => {
+                if (typeof window !== 'undefined' && window.history && window.history.pushState) {
+                  window.history.pushState({}, '', '/');
+                }
+                setCurrentScreen('tab_home');
+              }}
+            />
+          </SafeAreaView>
+        </ErrorBoundary>
+      );
+    }
+
     return (
       <ErrorBoundary>
-        <SafeAreaView style={{ flex: 1, backgroundColor: '#0F172A' }}>
-          <StatusBar barStyle="light-content" backgroundColor="#0F172A" />
-          <LoginScreen
+        <SafeAreaView style={{ flex: 1, backgroundColor: '#FFFFFF' }}>
+          <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+          <PublicLandingScreen
             onLoginSuccess={handleLoginSuccess}
             onOpenHostPortal={() => {
               if (typeof window !== 'undefined' && window.history && window.history.pushState) {
                 window.history.pushState({}, '', '/host');
               }
               setCurrentScreen('host_portal');
+            }}
+            onOpenAdminLogin={() => {
+              if (typeof window !== 'undefined' && window.history && window.history.pushState) {
+                window.history.pushState({}, '', '/admin/login');
+              }
+              setCurrentScreen('admin');
             }}
           />
         </SafeAreaView>
