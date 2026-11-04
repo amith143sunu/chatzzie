@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   Image,
   Modal,
+  Alert,
 } from 'react-native';
 import {
   PhoneOff,
@@ -865,7 +866,7 @@ export const ActiveCallScreen: React.FC<ActiveCallScreenProps> = ({
             onPress={() => {
               if (typeof window !== 'undefined') {
                 const base = window.location.origin || 'http://localhost:8680';
-                window.open(`${base}?autocall=${listener.username}&type=video`, '_blank');
+                window.open(`${base}?autocall=${listener?.username || 'partner'}&type=video`, '_blank');
               }
             }}
             activeOpacity={0.8}
@@ -1018,7 +1019,7 @@ export const ActiveCallScreen: React.FC<ActiveCallScreenProps> = ({
             onPress={() => {
               if (typeof window !== 'undefined') {
                 const base = window.location.origin || 'http://localhost:8680';
-                window.open(`${base}?autocall=${listener.username}&type=audio`, '_blank');
+                window.open(`${base}?autocall=${listener?.username || 'partner'}&type=audio`, '_blank');
               }
             }}
             activeOpacity={0.8}

@@ -1599,19 +1599,25 @@ app.post('/api/admin/pricing', (req, res) => {
 // 5B. BLOG & CONTENT CMS ENDPOINTS
 // -------------------------------------------------------------------
 const BLOGS_FILE = path_1.default.join(__dirname, '../data/blogs.json');
+let cachedBlogs = null;
 const getBlogsData = () => {
+    if (cachedBlogs)
+        return cachedBlogs;
     try {
         if (fs_1.default.existsSync(BLOGS_FILE)) {
             const raw = fs_1.default.readFileSync(BLOGS_FILE, 'utf-8');
-            return JSON.parse(raw);
+            cachedBlogs = JSON.parse(raw);
+            return cachedBlogs || [];
         }
     }
     catch (e) {
         console.error('Error reading blogs.json:', e);
     }
-    return [];
+    cachedBlogs = [];
+    return cachedBlogs;
 };
 const saveBlogsData = (blogs) => {
+    cachedBlogs = blogs;
     try {
         const dir = path_1.default.dirname(BLOGS_FILE);
         if (!fs_1.default.existsSync(dir))
@@ -1646,9 +1652,8 @@ app.get('/api/blogs/:slug', (req, res) => {
     if (!post) {
         return res.status(404).json({ success: false, error: 'Article not found' });
     }
-    // Increment view count
+    // Increment view count in memory
     post.viewsCount = (post.viewsCount || 0) + 1;
-    saveBlogsData(blogs);
     res.json({ success: true, post });
 });
 // Admin: Get all blogs (including drafts)

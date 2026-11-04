@@ -224,17 +224,21 @@ export default function App() {
   const handleHostAcceptCall = (call: any) => {
     const hostProfile: ListenerProfile = {
       id: userId,
+      userId: userId,
       name: userName,
       username: userUsername,
       avatarUrl: userAvatar,
       bio: 'Verified Host',
       callRatePerMinINR: call.callType === 'video' ? 30 : 9,
-      chatRatePerMsgINR: 0.25,
-      isOnline: true,
+      status: 'online',
       isVideoEnabled: true,
       languages: ['Hindi', 'English'],
-      totalCalls: 12,
       rating: 4.9,
+      totalReviews: 12,
+      followersCount: 120,
+      giftsCount: 5,
+      kycStatus: 'verified',
+      isAvailableForCalls: true,
     };
     setSelectedListener(hostProfile);
     setActiveCallType(call.callType || 'video');
@@ -879,7 +883,6 @@ export default function App() {
             }}
             onCallPress={handleStartCall}
             onBecomeListenerPress={() => setShowOnboardingModal(true)}
-            onEarningsPress={() => setShowEarningsModal(true)}
           />
         )}
 
@@ -1038,7 +1041,7 @@ export default function App() {
             listener={selectedListener}
             callType={activeCallType}
             userBalanceINR={walletBalanceINR}
-            isHost={userRole === 'listener'}
+            isHost={false}
             channelNameOverride={activeCallChannel}
             partnerNameOverride={activePartnerName}
             onEndCall={handleEndCall}
@@ -1086,7 +1089,7 @@ export default function App() {
           durationSeconds={summaryData.duration}
           totalCostINR={summaryData.cost}
           newBalanceINR={walletBalanceINR}
-          isHost={userRole === 'listener'}
+          isHost={false}
           onClose={() => setSummaryData({ visible: false, duration: 0, cost: 0 })}
         />
 

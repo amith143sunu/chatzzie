@@ -490,7 +490,7 @@ export const HostLiveScreen: React.FC<HostLiveScreenProps> = ({
               }
             }}
             activeOpacity={0.8}
-            title="Log out or switch account"
+            accessibilityLabel="Log out or switch account"
           >
             <LogOut size={15} color="#EF4444" />
           </TouchableOpacity>

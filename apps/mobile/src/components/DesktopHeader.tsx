@@ -143,7 +143,7 @@ export const DesktopHeader: React.FC<DesktopHeaderProps> = ({
               style={styles.earningsCtaBtn}
               onPress={onEarningsPress}
               activeOpacity={0.85}
-              title="Host Earnings & Settlements"
+              accessibilityLabel="Host Earnings & Settlements"
             >
               <IndianRupee size={13} color="#B45309" />
               <Text style={styles.earningsCtaText}>Earnings</Text>
@@ -155,7 +155,7 @@ export const DesktopHeader: React.FC<DesktopHeaderProps> = ({
             style={styles.balancePill}
             onPress={onBalancePress}
             activeOpacity={0.85}
-            title="Wallet Balance (Click to recharge)"
+            accessibilityLabel="Wallet Balance (Click to recharge)"
           >
             <Coins size={14} color="#D97706" />
             <Text style={styles.balanceCoinsText}>{(((balanceINR || 0) * 10)).toLocaleString('en-IN')}</Text>
@@ -177,7 +177,7 @@ export const DesktopHeader: React.FC<DesktopHeaderProps> = ({
             style={styles.avatarBtn}
             onPress={onAvatarPress}
             activeOpacity={0.85}
-            title="My Account"
+            accessibilityLabel="My Account"
           >
             <Image
               source={{ uri: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=200&q=80' }}
@@ -195,7 +195,7 @@ export const DesktopHeader: React.FC<DesktopHeaderProps> = ({
               }
             }}
             activeOpacity={0.85}
-            title="Open Admin Backoffice"
+            accessibilityLabel="Open Admin Backoffice"
           >
             <ShieldCheck size={14} color="#1E40AF" />
             <Text style={styles.adminPortalText}>Admin</Text>
@@ -205,17 +205,17 @@ export const DesktopHeader: React.FC<DesktopHeaderProps> = ({
           <View style={styles.viewToggleGroup}>
             <TouchableOpacity
               style={[styles.viewToggleBtn, viewMode === 'desktop' && styles.viewToggleBtnActive]}
-              onPress={() => onToggleViewMode('desktop')}
+              onPress={() => onToggleViewMode?.('desktop')}
               activeOpacity={0.8}
-              title="Desktop Web Mode"
+              accessibilityLabel="Desktop Web Mode"
             >
               <Monitor size={13} color={viewMode === 'desktop' ? '#FFFFFF' : '#64748B'} />
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.viewToggleBtn, viewMode === 'mobile' && styles.viewToggleBtnActive]}
-              onPress={() => onToggleViewMode('mobile')}
+              onPress={() => onToggleViewMode?.('mobile')}
               activeOpacity={0.8}
-              title="Mobile Device Preview"
+              accessibilityLabel="Mobile Device Preview"
             >
               <Smartphone size={13} color={viewMode === 'mobile' ? '#FFFFFF' : '#64748B'} />
             </TouchableOpacity>
@@ -299,7 +299,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderRadius: 24,
-    transition: 'all 0.15s ease' as any,
   },
   navItemActive: {
     backgroundColor: '#EFF6FF',

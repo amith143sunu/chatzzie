@@ -341,7 +341,7 @@ export const ChatDetailScreen: React.FC<ChatDetailScreenProps> = ({
             style={styles.callShortcutBtn}
             onPress={onAudioCallPress}
             activeOpacity={0.8}
-            title="Start Voice Call (₹9/min)"
+            accessibilityLabel="Start Voice Call (₹9/min)"
           >
             <Phone size={18} color={THEME.colors.primary} />
           </TouchableOpacity>
@@ -350,7 +350,7 @@ export const ChatDetailScreen: React.FC<ChatDetailScreenProps> = ({
             style={styles.callShortcutBtn}
             onPress={onVideoCallPress}
             activeOpacity={0.8}
-            title="Start Video Call (₹30/min)"
+            accessibilityLabel="Start Video Call (₹30/min)"
           >
             <Video size={18} color="#7C3AED" />
           </TouchableOpacity>
@@ -474,7 +474,7 @@ export const ChatDetailScreen: React.FC<ChatDetailScreenProps> = ({
           style={styles.attachBtn}
           onPress={() => setShowPhotoPicker(true)}
           activeOpacity={0.8}
-          title="Send Photo (₹0.75)"
+          accessibilityLabel="Send Photo (₹0.75)"
         >
           <ImageIcon size={20} color={THEME.colors.primary} />
         </TouchableOpacity>
@@ -484,7 +484,7 @@ export const ChatDetailScreen: React.FC<ChatDetailScreenProps> = ({
           style={styles.giftBtn}
           onPress={() => setShowGiftModal(true)}
           activeOpacity={0.8}
-          title="Send Gift"
+          accessibilityLabel="Send Gift"
         >
           <Gift size={20} color="#EC4899" />
         </TouchableOpacity>
@@ -1084,11 +1084,6 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 24,
     padding: 24,
     paddingBottom: 36,
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: THEME.colors.textPrimary,
   },
   modalSubtitle: {
     fontSize: 12,

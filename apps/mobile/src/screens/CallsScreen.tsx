@@ -186,7 +186,7 @@ const styles = StyleSheet.create({
   searchBox: {
     width: '100%',
     height: 40,
-    backgroundColor: THEME.colors.inputBg,
+    backgroundColor: THEME.colors.background,
     borderRadius: 20,
     flexDirection: 'row',
     alignItems: 'center',

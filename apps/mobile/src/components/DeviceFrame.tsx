@@ -112,7 +112,7 @@ export const DeviceFrame: React.FC<DeviceFrameProps> = ({
               }
             }}
             activeOpacity={0.8}
-            title="Open Admin Backoffice in new tab"
+            accessibilityLabel="Open Admin Backoffice in new tab"
           >
             <ShieldCheck size={14} color="#93C5FD" />
             <Text style={styles.adminLinkText}>Admin Portal (/admin)</Text>
